@@ -16,6 +16,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -75,9 +76,10 @@ import me.clip.placeholderapi.PlaceholderAPI;
 import net.milkbowl.vault.economy.Economy;
 
 // @SuppressWarnings("deprecation")
-@SuppressWarnings({ "unused", "deprecation" })
+// @SuppressWarnings({ "unused", "deprecation" })
 public class DragonSlayer extends JavaPlugin {
-    static final String Copyright = "Copyright by Jeppa (A.F.)! You are NOT allowed to decompile this plugin and/or use any parts of its code !!!";
+    private static DragonSlayer instance = null;
+    static final String Copyright = "The plugin were decompiled and continued the project from the original author, i'm doing the same.";
     final Logger logger = this.getLogger();
     ConfigManager configManager = new ConfigManager(this);
     TimerManager timerManager = new TimerManager(this);
@@ -110,6 +112,7 @@ public class DragonSlayer extends JavaPlugin {
 
     private static Method db_e = null;
     private static Method db_d = null;
+    public static Boolean debugOn = false;
     private static Method endgatewayMethod = null;
     private static Field OrigGateways = null;
     private static Field DragonKilled = null;
@@ -119,8 +122,8 @@ public class DragonSlayer extends JavaPlugin {
     private static Field naviField = null;
     private static Method fillArray = null;
     private static Method getEDBMethod = null;
-    private static Class<org.bukkit.craftbukkit.CraftWorld> CraftWorldClass = null;
-    private static Class<org.bukkit.craftbukkit.entity.CraftEnderDragon> CraftEnderDragonClass = null;
+    private static Class<?> CraftWorldClass = null;
+    private static Class<?> CraftEnderDragonClass = null;
     private static Field CrystalAmount_f = null;
     private static Object dId = null;
     private static Constructor<?> newBlockPosition = null;
@@ -148,8 +151,10 @@ public class DragonSlayer extends JavaPlugin {
     private static ArrayList<Team> TeamList = new ArrayList<Team>();
 
     public void onEnable() {
+        this.instance = this;
         this.configManager.loadConfiguration();
         this.configManager.checkOldConfig();
+        this.debugOn = this.configManager.debugOn();
         this.setupEconomy();
         this.setupDependPlugins();
         this.Protocollib();
@@ -164,6 +169,8 @@ public class DragonSlayer extends JavaPlugin {
             Class.forName("org.spigotmc.SpigotConfig");
             spigot = true;
         } catch (ClassNotFoundException | NoClassDefFoundError var8) {
+            this.logger.severe("org.spigotmc.SpigotConfig not found, disabling");
+            getServer().getPluginManager().disablePlugin(this);
         }
 
         try {
@@ -995,7 +1002,7 @@ public class DragonSlayer extends JavaPlugin {
                         Material blockType = Material.AIR;
                         if (y <= 2) {
                             if (Math.abs(x * z) < (maxXZ - 1) * 2 && Math.abs(x) <= maxXZ - 1 && Math.abs(z) <= maxXZ - 1) {
-                                blockType = (y == 2 && endPortal > 0) ? Material.valueOf("ENDER_PORTAL") : portalStone;
+                                blockType = (y == 2 && endPortal > 0) ? Material.END_PORTAL : portalStone;
                             } else {
                                 blockType = portalStone;
                             }
@@ -1050,12 +1057,19 @@ public class DragonSlayer extends JavaPlugin {
     }
 
     private static void setTorch(Location Baseblock, BlockFace Face) {
-        Block TorchBlock = Baseblock.getBlock().getRelative(Face);
-        TorchBlock.setType(Material.WALL_TORCH);
-        BlockState state = TorchBlock.getState();
-        ((Directional) state.getBlockData()).setFacing(TorchBlock.getFace(Baseblock.getBlock()).getOppositeFace());
-        state.update(true);
+        // Todo: discover why this is throwing errors...
+        Bukkit.getScheduler().runTask(instance, new Runnable() {
+            @Override
+            public void run() {
+                Block TorchBlock = Baseblock.getBlock().getRelative(Face);
+                TorchBlock.setType(Material.WALL_TORCH);
 
+                // ((Directional)
+                // state.getBlockData()).setFacing(TorchBlock.getFace(Baseblock.getBlock()).getOppositeFace());
+                ((Directional) TorchBlock.getState().getBlockData()).setFacing(Face);
+                TorchBlock.getState().update(true);
+            }
+        });
     }
 
     private void WorldRefresh2(String ThisWorldsName) {
@@ -1888,7 +1902,7 @@ public class DragonSlayer extends JavaPlugin {
             if (setEDBforce) {
                 for (Object Battle : BattleList.keySet()) {
                     if (PortLoc_f == null) {
-                        PortLoc_f = this.getFieldByType(Battle.getClass(), "BlockPosition", true);
+                        PortLoc_f = this.getFieldByType(Battle.getClass(), "BlockPos", true);
                     }
 
                     PortLoc_f.setAccessible(true);
@@ -2524,128 +2538,164 @@ public class DragonSlayer extends JavaPlugin {
     private void StartRepeatingTimer() {
 
         this.getServer().getScheduler().scheduleSyncRepeatingTask(this, () -> {
-            this.getServer().getScheduler().runTaskAsynchronously(this, () -> this.checkGWReverse(15));
+            try {
+                this.getServer().getScheduler().runTaskAsynchronously(this, () -> this.checkGWReverse(15));
+            } catch (Exception ignored) {
+                if (this.configManager.debugOn())
+                    ignored.printStackTrace();
+            }
 
         }, 15L, 3L);
     }
 
+    /**
+     * Retrieves a method by looking at its name.
+     *
+     * @param nameRegex - regular expression that will match method names.
+     * @return The first method that satisfies the regular expression.
+     * @throws IllegalArgumentException If the method cannot be found.
+     */
+    public Method getMethodByName(Class<?> clazz, String nameRegex) {
+        Pattern match = Pattern.compile(nameRegex);
+        for (Method method : clazz.getMethods()) {
+            if (match.matcher(method.getName()).matches()) {
+                return method;
+            }
+        }
+
+        throw new IllegalArgumentException(String.format("Unable to find a method in %s that matches \"%s\"", clazz.getName(), nameRegex));
+    }
+
+    @SuppressWarnings("unchecked")
     private void checkGWReverse(int distance) {
-        boolean bypassON = Boolean.parseBoolean(this.getConfig().getString("global.bypassdragongateway"));
-        int bypassFunc = Integer.parseInt(this.getConfig().getString("global.bypassfunc", "1"));
-        bypassFunc = bypassFunc >= 1 && bypassFunc <= 2 ? bypassFunc : 1;
-        if (bypassON) {
-            for (String mapname : this.configManager.getMaplist()) {
-                World thisWorld = this.getDragonWorldFromString(mapname);
-                if (thisWorld != null) {
-                    Collection<EnderDragon> dragons = null;
+        try {
 
-                    try {
-                        dragons = thisWorld.getEntitiesByClass(EnderDragon.class);
-                    } catch (ConcurrentModificationException | ArrayIndexOutOfBoundsException var19) {
-                    }
+            boolean bypassON = Boolean.parseBoolean(this.getConfig().getString("global.bypassdragongateway"));
+            int bypassFunc = Integer.parseInt(this.getConfig().getString("global.bypassfunc", "1"));
+            bypassFunc = bypassFunc >= 1 && bypassFunc <= 2 ? bypassFunc : 1;
+            if (bypassON) {
+                for (String mapname : this.configManager.getMaplist()) {
+                    World thisWorld = this.getDragonWorldFromString(mapname);
+                    if (thisWorld != null) {
+                        Collection<EnderDragon> dragons = null;
 
-                    if (dragons != null) {
-                        for (EnderDragon dragon : dragons) {
-                            Location dragLoc = dragon.getLocation();
-                            Block foundGateway = CheckGatewaysForDragon(thisWorld, dragLoc, distance);
-                            if (foundGateway != null) {
-                                if (bypassFunc == 1) {
-                                    double dragY = dragLoc.getY();
-                                    double gateY = (double) foundGateway.getY();
-                                    double diffY = gateY - dragY;
-                                    diffY = diffY < 0.0D ? diffY - (double) distance * 1.2D : diffY + (double) distance * 1.2D;
-                                    Location target = dragLoc.clone().add(0.0D, diffY, 0.0D);
-                                    this.syncTP(dragon, target);
-                                } else if (bypassFunc == 2) {
-                                    this.getServer().getScheduler().runTaskLater(this, () -> {
-                                        if (foundGateway.getType() == Material.END_GATEWAY) {
-                                            try {
-                                                Object worldServer = this.getWorldServer(thisWorld);
-                                                Object blockPos = this.makeBlockPositionObject(foundGateway.getX(), foundGateway.getY(),
-                                                        foundGateway.getZ());
-                                                Object tileEnt = null;
-                                                if (getTileEntity == null) {
-                                                    String funcName = "getBlockEntity";
+                        Object thisCraftWorld = getCraftWorld(thisWorld);
+                        if (thisCraftWorld != null) {
+                            try {
+                                Method getMethodByName = this.getMethodByName(CraftWorldClass, "getEntitiesByClass");
+                                dragons = (Collection<EnderDragon>) getMethodByName.invoke(thisCraftWorld, EnderDragon.class);
 
-                                                    try {
-                                                        getTileEntity = Class.forName("net.minecraft.world.level.Level")
-                                                                .getDeclaredMethod(funcName, blockPos.getClass(), Boolean.TYPE);
-                                                    } catch (ClassNotFoundException | NoSuchMethodException ignored) {
-                                                    }
-                                                }
+                            } catch (Exception var19) {
+                            }
 
+                        } else {
+                            try {
+                                dragons = thisWorld.getEntitiesByClass(EnderDragon.class);
+                            } catch (Exception var19) {
+                            }
+                        }
+                        if (dragons != null) {
+                            for (EnderDragon dragon : dragons) {
+                                Location dragLoc = dragon.getLocation();
+                                Block foundGateway = CheckGatewaysForDragon(thisWorld, dragLoc, distance);
+                                if (foundGateway != null) {
+                                    if (bypassFunc == 1) {
+                                        double dragY = dragLoc.getY();
+                                        double gateY = (double) foundGateway.getY();
+                                        double diffY = gateY - dragY;
+                                        diffY = diffY < 0.0D ? diffY - (double) distance * 1.2D : diffY + (double) distance * 1.2D;
+                                        Location target = dragLoc.clone().add(0.0D, diffY, 0.0D);
+                                        this.syncTP(dragon, target);
+                                    } else if (bypassFunc == 2) {
+                                        this.getServer().getScheduler().runTaskLater(this, () -> {
+                                            if (foundGateway.getType() == Material.END_GATEWAY) {
                                                 try {
-                                                    getTileEntity.setAccessible(true);
-                                                    tileEnt = getTileEntity.invoke(worldServer, blockPos, false);
-                                                } catch (IllegalArgumentException var10) {
-                                                    tileEnt = getTileEntity.invoke(worldServer, blockPos);
-                                                }
-
-                                                // Object nbt_1 = null;
-                                                if (tileEnt != null) {
-
-                                                    if (saveNBT == null) {
-                                                        // Until I learn how to get HolderLookup$Provider this will be skipped
-                                                        // saveNBT = tileEnt.getClass().getDeclaredMethod("saveWithFullMetadata");
-
-                                                        if (saveNBT != null) {
-                                                            // nbt_1 = saveNBT.invoke(tileEnt);
-                                                        } else {
-                                                            // nbt_1 = Class.forName("net.minecraft.nbt.CompoundTag").newInstance();
-                                                            if (this.configManager.debugOn()) {
-                                                                this.logger.warning(
-                                                                        "Can not handle NBT recreate from TileEntity... using empty NBT...)");
-                                                            }
-                                                        }
-                                                    }
-                                                    final Object nbt_1 = Class.forName("net.minecraft.nbt.CompoundTag").newInstance();
-
-                                                    foundGateway.breakNaturally();
-                                                    this.getServer().getScheduler().runTaskLater(this, () -> {
-                                                        foundGateway.setType(Material.END_GATEWAY);
-                                                        Object tileEnt2 = null;
+                                                    Object worldServer = this.getWorldServer(thisWorld);
+                                                    Object blockPos = this.makeBlockPositionObject(foundGateway.getX(), foundGateway.getY(),
+                                                            foundGateway.getZ());
+                                                    Object tileEnt = null;
+                                                    if (getTileEntity == null) {
+                                                        String funcName = "getBlockEntity";
 
                                                         try {
-                                                            try {
-                                                                getTileEntity.setAccessible(true);
-                                                                tileEnt2 = getTileEntity.invoke(worldServer, blockPos, false);
-                                                            } catch (IllegalArgumentException var7) {
-                                                                tileEnt2 = getTileEntity.invoke(worldServer, blockPos);
-                                                            }
+                                                            getTileEntity = Class.forName("net.minecraft.world.level.Level")
+                                                                    .getDeclaredMethod(funcName, blockPos.getClass(), Boolean.TYPE);
+                                                        } catch (ClassNotFoundException | NoSuchMethodException ignored) {
+                                                        }
+                                                    }
 
-                                                            if (tileEnt2 != null) {
-                                                                tileEnt2.getClass().getDeclaredMethod("loadAdditional", nbt_1.getClass())
-                                                                        .invoke(tileEnt2, nbt_1);
-                                                            }
-                                                        } catch (IllegalAccessException | NoSuchMethodException
-                                                                | InvocationTargetException var8) {
-                                                            if (this.configManager.debugOn()) {
-                                                                this.logger.warning("Can not handle TileEntity/NBT recreate)");
-                                                                var8.printStackTrace();
+                                                    try {
+                                                        getTileEntity.setAccessible(true);
+                                                        tileEnt = getTileEntity.invoke(worldServer, blockPos, false);
+                                                    } catch (IllegalArgumentException var10) {
+                                                        tileEnt = getTileEntity.invoke(worldServer, blockPos);
+                                                    }
+
+                                                    // Object nbt_1 = null;
+                                                    if (tileEnt != null) {
+
+                                                        if (saveNBT == null) {
+                                                            // Until I learn how to get HolderLookup$Provider this will be skipped
+                                                            // saveNBT = tileEnt.getClass().getDeclaredMethod("saveWithFullMetadata");
+
+                                                            if (saveNBT != null) {
+                                                                // nbt_1 = saveNBT.invoke(tileEnt);
+                                                            } else {
+                                                                // nbt_1 = Class.forName("net.minecraft.nbt.CompoundTag").newInstance();
+                                                                if (this.configManager.debugOn()) {
+                                                                    this.logger.warning(
+                                                                            "Can not handle NBT recreate from TileEntity... using empty NBT...)");
+                                                                }
                                                             }
                                                         }
+                                                        final Object nbt_1 = Class.forName("net.minecraft.nbt.CompoundTag").newInstance();
 
-                                                    }, 40L);
-                                                }
-                                            } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException
-                                                    | SecurityException | ClassNotFoundException | InstantiationException
-                                                    | NullPointerException var13) {
-                                                if (this.configManager.debugOn()) {
-                                                    this.logger.warning("Can not handle TileEntity/NBT...)");
-                                                    var13.printStackTrace();
+                                                        foundGateway.breakNaturally();
+                                                        this.getServer().getScheduler().runTaskLater(this, () -> {
+                                                            foundGateway.setType(Material.END_GATEWAY);
+                                                            Object tileEnt2 = null;
+
+                                                            try {
+                                                                try {
+                                                                    getTileEntity.setAccessible(true);
+                                                                    tileEnt2 = getTileEntity.invoke(worldServer, blockPos, false);
+                                                                } catch (IllegalArgumentException var7) {
+                                                                    tileEnt2 = getTileEntity.invoke(worldServer, blockPos);
+                                                                }
+
+                                                                if (tileEnt2 != null) {
+                                                                    tileEnt2.getClass()
+                                                                            .getDeclaredMethod("loadAdditional", nbt_1.getClass())
+                                                                            .invoke(tileEnt2, nbt_1);
+                                                                }
+                                                            } catch (Exception var8) {
+                                                                if (this.configManager.debugOn()) {
+                                                                    this.logger.warning("Can not handle TileEntity/NBT recreate)");
+                                                                    var8.printStackTrace();
+                                                                }
+                                                            }
+
+                                                        }, 40L);
+                                                    }
+                                                } catch (Exception var13) {
+                                                    if (this.configManager.debugOn()) {
+                                                        this.logger.warning("Can not handle TileEntity/NBT...)");
+                                                        var13.printStackTrace();
+                                                    }
                                                 }
                                             }
-                                        }
 
-                                    }, 0L);
+                                        }, 0L);
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-        }
+        } catch (Exception e) {
 
+        }
     }
 
     private void syncTP(EnderDragon ThisDragon, Location target) {
@@ -2690,7 +2740,7 @@ public class DragonSlayer extends JavaPlugin {
     Object getCraftWorld(World ThisWorld) {
         try {
             if (CraftWorldClass == null) {
-                CraftWorldClass = (Class<CraftWorld>) Class.forName("org.bukkit.craftbukkit.CraftWorld");
+                CraftWorldClass = (Class<?>) Class.forName("org.bukkit.craftbukkit.CraftWorld");
             }
 
             if (CraftWorldClass.isInstance(ThisWorld)) {
@@ -2744,11 +2794,18 @@ public class DragonSlayer extends JavaPlugin {
                 try {
                     location = (Location) ((MetadataValue) list.get(0)).value();
                 } catch (Exception var4) {
+                    if (DragonSlayer.debugOn) {
+                        Bukkit.getLogger().warning("'DSL-Location' not found in Dragon's Metadata");
+                    }
                 }
             }
         }
 
         return location;
+    }
+
+    public static DragonSlayer getInstance() { // TODO Auto-generated method stub
+        return instance;
     }
 
     void setDragonIDMeta(EnderDragon dragon, int dragonId) {

@@ -1,5 +1,5 @@
 # ####################### #
-# Dragon Slayer v0.12.15  #
+# Dragon Slayer v0.13.0   #
 # ####################### #
 # ------------------------------------------------------------------------------------------ #
 # here are some infos about the sections in this config:                                     #
@@ -48,7 +48,8 @@ prefix:
 # global - Here are some general settings for the dragons/worlds
 #
 global:
-  slayer: Jeppa #                                        #saves the UUID of the Dragon Slayer
+  debug: false                                           # To check for errors on Console, enable this
+  slayer: NoobMaster69                                   #saves the UUID of the Dragon Slayer
   slayerbypercent: false #                               #whether the slayer is selected by being the killer or the top damager.
   slayerbyrank: false #                                  #whether the slayer is selected by dragon kills. (will override default and 'slayerbypercent' functions...)
   blockgrief: false #                                    #is the dragon allowed to destroy non end blocks (can be overridden by world's-settings)

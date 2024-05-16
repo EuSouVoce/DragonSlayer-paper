@@ -405,12 +405,7 @@ public class PlayerListener implements Listener {
             if ((this.plugin.configManager.getCrystalDeny(world) || this.plugin.configManager.getMultiPortal())
                     && event.getAction().equals(Action.RIGHT_CLICK_BLOCK)
                     && (bl.getType().equals(Material.BEDROCK) || bl.getType().equals(Material.OBSIDIAN))) {
-                Material EndCrystal;
-                try {
-                    EndCrystal = Material.valueOf("END_CRYSTAL");
-                } catch (Exception var15) {
-                    EndCrystal = Material.valueOf("ENDER_CRYSTAL");
-                }
+                Material EndCrystal = Material.END_CRYSTAL;
 
                 if (event.getMaterial().equals(EndCrystal)) {
                     Location loc = bl.getLocation();

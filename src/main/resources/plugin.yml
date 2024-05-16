@@ -2,7 +2,7 @@ name: DragonSlayer
 author: Jeppa
 contributor: [mickverm, EuSouVoce]
 main: de.jeppa.DragonSlayer.DragonSlayer
-version: 0.12.15_Jeppa
+version: 0.13.0
 api-version: 1.13
 softdepend: [Vault,PlaceholderAPI,UltimateChat,Legendchat,Multiverse-Core,Essentials,ProtocolLib,SkinsRestorer]
 website: http://www.spigotmc.org/resources/dragonslayer.36250/

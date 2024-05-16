@@ -45,6 +45,8 @@ import org.bukkit.event.player.PlayerExpChangeEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.MetadataValue;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.milkbowl.vault.economy.EconomyResponse;
 
 public class DragonEvents implements Listener {
@@ -65,13 +67,13 @@ public class DragonEvents implements Listener {
             final String w = ThisWorld.getName().toLowerCase();
             if (this.plugin.checkWorld(w) && entity instanceof EnderDragon && this.plugin.checkDSLDragon((EnderDragon) entity)) {
                 Object damager = null;
-                final String damageEventName = e.getEventName();
-                if (damageEventName.equals("EntityDamageByEntityEvent")) {
+
+                if (e instanceof EntityDamageByEntityEvent) {
                     try {
                         damager = ((EntityDamageByEntityEvent) e).getDamager();
                     } catch (final Exception var30) {
                     }
-                } else if (damageEventName.equals("EntityDamageByBlockEvent")) {
+                } else if (e instanceof EntityDamageByBlockEvent) {
                     try {
                         final Block damager_ = ((EntityDamageByBlockEvent) e).getDamager();
                         if (damager_ != null) {
@@ -204,20 +206,29 @@ public class DragonEvents implements Listener {
                         }
                     }
                 } else if (damager != null) {
-                    String dName = "";
-                    if (damager instanceof Entity) {
-                        dName = ((Entity) damager).getName();
+                    // String dName = "";
+                    Component damagerName = Component.empty();
+                    if (damager instanceof Player) {
+                        // dName = ((Player) damager).getDisplayName();
+                        damagerName.append(((Player) damager).displayName());
+                    } else if (damager instanceof Entity) {
+                        // dName = ((Entity) damager).getName();
+                        damagerName.append((((Entity) damager).customName()) != Component.empty() ? ((Entity) damager).customName()
+                                : Component.text().content(((Entity) damager).getName()));
                     } else if (damager instanceof Block) {
-                        dName = ((Block) damager).getType().name();
+                        // dName = ((Block) damager).getType().name();
+                        damagerName.append(Component.translatable(((Block) damager)));
                     } else if (damager instanceof Material) {
-                        dName = ((Material) damager).name();
+                        damagerName.append(Component.translatable(((Material) damager)));
                     }
 
                     Bukkit.getServer()
-                            .broadcastMessage(this.plugin.replaceValues(this.plugin.configManager.getDiedMessage() + " " + dName, w));
+                            .broadcast(LegacyComponentSerializer.legacyAmpersand()
+                                    .deserialize(this.plugin.replaceValues(this.plugin.configManager.getDiedMessage(), w)).appendSpace()
+                                    .append(damagerName));
                 } else {
-                    Bukkit.getServer().broadcastMessage(
-                            this.plugin.replaceValues(this.plugin.configManager.getDiedMessage() + " " + e.getCause(), w));
+                    Bukkit.getServer().broadcast(LegacyComponentSerializer.legacyAmpersand()
+                            .deserialize(this.plugin.replaceValues(this.plugin.configManager.getDiedMessage() + " " + e.getCause(), w)));
                 }
 
                 this.plugin.setEndGatewayPortals(entity.getWorld());
@@ -520,20 +531,7 @@ public class DragonEvents implements Listener {
     }
 
     private void PlayDragonSound(final World ThisWorld) {
-        Sound Ton = null;
-
-        try {
-            Ton = Sound.valueOf("ENDERDRAGON_GROWL");
-        } catch (final IllegalArgumentException var8) {
-            try {
-                Ton = Sound.valueOf("ENTITY_ENDERDRAGON_GROWL");
-            } catch (final IllegalArgumentException var7) {
-                try {
-                    Ton = Sound.valueOf("ENTITY_ENDER_DRAGON_GROWL");
-                } catch (final IllegalArgumentException var6) {
-                }
-            }
-        }
+        Sound Ton = Sound.ENTITY_ENDER_DRAGON_GROWL;
 
         for (final Player p : Bukkit.getOnlinePlayers()) {
             if (Ton != null && (this.plugin.configManager.getNoSpawnSound() && p.getWorld().equals(ThisWorld)

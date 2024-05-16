@@ -231,15 +231,38 @@
         <artifactId>maven-jar-plugin</artifactId>
         <version>3.4.1</version>
         <configuration>
-          <archive>
-            <manifestEntries>
-              <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
-              <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-            </manifestEntries>
-          </archive>
+            <archive>
+                <manifestEntries>
+                    <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
+                    <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                </manifestEntries>
+            </archive>
         </configuration>
-      </plugin>
-      <plugin>
+        <executions>
+            <execution>
+                <id>default-jar</id>
+                <phase>package</phase>
+                <goals>
+                    <goal>jar</goal>
+                </goals>
+                <configuration>
+                    <outputDirectory>${project.build.directory}/../</outputDirectory>
+                </configuration>
+            </execution>
+            <execution>
+                <id>custom-jar</id>
+                <phase>package</phase>
+                <goals>
+                    <goal>jar</goal>
+                </goals>
+                <configuration>
+                    <outputDirectory>C:\Users\EuSouVoce\Desktop\testserver\plugins</outputDirectory>
+                    <classifier>custom</classifier>
+                </configuration>
+            </execution>
+        </executions>
+    </plugin>
+    <plugin>
         <artifactId>maven-install-plugin</artifactId>
         <version>2.5.2</version>
       </plugin>
