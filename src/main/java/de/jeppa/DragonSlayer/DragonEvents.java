@@ -57,7 +57,7 @@ public class DragonEvents implements Listener {
 
     public DragonEvents(final DragonSlayer instance) { this.plugin = instance; }
 
-    @SuppressWarnings({ "unchecked", "deprecation" })
+    @SuppressWarnings({ "unchecked" })
     @EventHandler
     public void onDragonDeath(final EntityDeathEvent event) {
         if (event.getEntity() instanceof Entity) {

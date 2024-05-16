@@ -4,12 +4,22 @@ contributor: [mickverm, EuSouVoce]
 main: de.jeppa.DragonSlayer.DragonSlayer
 version: 0.13.0
 api-version: 1.13
-softdepend: [Vault,PlaceholderAPI,UltimateChat,Legendchat,Multiverse-Core,Essentials,ProtocolLib,SkinsRestorer]
+softdepend:
+  [
+    Vault,
+    PlaceholderAPI,
+    UltimateChat,
+    Legendchat,
+    Multiverse-Core,
+    Essentials,
+    ProtocolLib,
+    SkinsRestorer,
+  ]
 website: http://www.spigotmc.org/resources/dragonslayer.36250/
 
 commands:
   dragonslayer:
-    aliases: ['dslayer', 'dsl']
+    aliases: ["dslayer", "dsl"]
     description: Begin of all dragonslayer commands.
     permission-message: I'm sorry, but you do not have permission to perform this command.
 

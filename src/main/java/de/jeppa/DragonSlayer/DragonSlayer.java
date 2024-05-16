@@ -30,14 +30,12 @@ import org.bukkit.World.Environment;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.block.BlockState;
 import org.bukkit.block.data.Directional;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarFlag;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.craftbukkit.entity.CraftEnderDragon;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EnderCrystal;
@@ -76,7 +74,7 @@ import me.clip.placeholderapi.PlaceholderAPI;
 import net.milkbowl.vault.economy.Economy;
 
 // @SuppressWarnings("deprecation")
-// @SuppressWarnings({ "unused", "deprecation" })
+@SuppressWarnings({ "unused", "deprecation" })
 public class DragonSlayer extends JavaPlugin {
     private static DragonSlayer instance = null;
     static final String Copyright = "The plugin were decompiled and continued the project from the original author, i'm doing the same.";
@@ -151,10 +149,10 @@ public class DragonSlayer extends JavaPlugin {
     private static ArrayList<Team> TeamList = new ArrayList<Team>();
 
     public void onEnable() {
-        this.instance = this;
+        DragonSlayer.instance = this;
         this.configManager.loadConfiguration();
         this.configManager.checkOldConfig();
-        this.debugOn = this.configManager.debugOn();
+        DragonSlayer.debugOn = this.configManager.debugOn();
         this.setupEconomy();
         this.setupDependPlugins();
         this.Protocollib();
@@ -2736,7 +2734,6 @@ public class DragonSlayer extends JavaPlugin {
         return returnLoc;
     }
 
-    @SuppressWarnings("unchecked")
     Object getCraftWorld(World ThisWorld) {
         try {
             if (CraftWorldClass == null) {
@@ -2804,9 +2801,7 @@ public class DragonSlayer extends JavaPlugin {
         return location;
     }
 
-    public static DragonSlayer getInstance() { // TODO Auto-generated method stub
-        return instance;
-    }
+    public static DragonSlayer getInstance() { return instance; }
 
     void setDragonIDMeta(EnderDragon dragon, int dragonId) {
         MetadataValue MdV_DragonID = new FixedMetadataValue(this, dragonId);
