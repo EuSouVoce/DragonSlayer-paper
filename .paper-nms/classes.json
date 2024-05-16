@@ -1,17 +1,1 @@
-{
-    "de\\jeppa\\DragonSlayer\\TimerManager.class": 1715890322259,
-    "de\\jeppa\\DragonSlayer\\DragonPlaceholderAPI.class": 1715890322266,
-    "de\\jeppa\\DragonSlayer\\DragonLChatEvents.class": 1715890322261,
-    "de\\jeppa\\DragonSlayer\\DragonSlayer$1.class": 1715891636249,
-    "de\\jeppa\\DragonSlayer\\DragonRespawn.class": 1715890322262,
-    "de\\jeppa\\DragonSlayer\\ProtLibHandler.class": 1715890322267,
-    "de\\jeppa\\DragonSlayer\\FourteenPlusOnlyRoutines.class": 1715890322232,
-    "de\\jeppa\\DragonSlayer\\DragonSlayer.class": 1715891636374,
-    "de\\jeppa\\DragonSlayer\\ConfigManager.class": 1715890322284,
-    "de\\jeppa\\DragonSlayer\\WorldRefreshOrReset.class": 1715890322280,
-    "de\\jeppa\\DragonSlayer\\PlayerListener.class": 1715890322261,
-    "de\\jeppa\\DragonSlayer\\DragonPlaceholderAPIold.class": 1715890322266,
-    "de\\jeppa\\DragonSlayer\\DragonEvents.class": 1715890507420,
-    "de\\jeppa\\DragonSlayer\\DragonCommands.class": 1715890322301,
-    "de\\jeppa\\DragonSlayer\\LeaderManager.class": 1715890322254
-}
+{"de\\jeppa\\DragonSlayer\\TimerManager.class":1715891852680,"de\\jeppa\\DragonSlayer\\DragonPlaceholderAPI.class":1715891852616,"de\\jeppa\\DragonSlayer\\DragonLChatEvents.class":1715891852616,"de\\jeppa\\DragonSlayer\\DragonSlayer$1.class":1715891852559,"de\\jeppa\\DragonSlayer\\DragonRespawn.class":1715891852689,"de\\jeppa\\DragonSlayer\\ProtLibHandler.class":1715891852610,"de\\jeppa\\DragonSlayer\\FourteenPlusOnlyRoutines.class":1715891852562,"de\\jeppa\\DragonSlayer\\DragonSlayer.class":1715891852685,"de\\jeppa\\DragonSlayer\\ConfigManager.class":1715891852665,"de\\jeppa\\DragonSlayer\\WorldRefreshOrReset.class":1715891852601,"de\\jeppa\\DragonSlayer\\PlayerListener.class":1715891852665,"de\\jeppa\\DragonSlayer\\DragonPlaceholderAPIold.class":1715891852664,"de\\jeppa\\DragonSlayer\\DragonEvents.class":1715891852612,"de\\jeppa\\DragonSlayer\\DragonCommands.class":1715891852680,"de\\jeppa\\DragonSlayer\\LeaderManager.class":1715891852679}
