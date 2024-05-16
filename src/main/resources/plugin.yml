@@ -1,0 +1,60 @@
+name: DragonSlayer
+author: Jeppa
+contributor: [mickverm, EuSouVoce]
+main: de.jeppa.DragonSlayer.DragonSlayer
+version: 0.12.15_Jeppa
+api-version: 1.13
+softdepend: [Vault,PlaceholderAPI,UltimateChat,Legendchat,Multiverse-Core,Essentials,ProtocolLib,SkinsRestorer]
+website: http://www.spigotmc.org/resources/dragonslayer.36250/
+
+commands:
+  dragonslayer:
+    aliases: ['dslayer', 'dsl']
+    description: Begin of all dragonslayer commands.
+    permission-message: I'm sorry, but you do not have permission to perform this command.
+
+permissions:
+  dragonslayer.info:
+    description: /dragonslayer showtimer permission
+    default: true
+  dragonslayer.setspawn:
+    description: /dragonslayer setspawn/remspawn & setarmorstand/remarmorstand permission
+    default: false
+  dragonslayer.getspawn:
+    description: /dragonslayer getspawn & getarmorstand permission
+    default: false
+  dragonslayer.reload:
+    description: /dragonslayer reload & cleartimer permission
+    default: false
+  dragonslayer.forcerespawn:
+    description: /dragonslayer forcerespawn permission
+    default: false
+  dragonslayer.worldreset:
+    description: /dragonslayer worldreset permission
+    default: false
+  dragonslayer.admin:
+    description: admin permissions
+    default: false
+    children:
+      dragonslayer.info: true
+      dragonslayer.setspawn: true
+      dragonslayer.getspawn: true
+      dragonslayer.reload: true
+      dragonslayer.forcerespawn: true
+      dragonslayer.worldreset: true
+      dragonslayer: true
+  dragonslayer:
+    description: /dragonslayer permission
+    default: true
+  dragonslayer.*:
+    description: all permissions
+    default: op
+    children:
+      dragonslayer.info: true
+      dragonslayer.setspawn: true
+      dragonslayer.getspawn: true
+      dragonslayer.reload: true
+      dragonslayer.forcerespawn: true
+      dragonslayer.worldreset: true
+      dragonslayer.admin: true
+      dragonslayer: true
