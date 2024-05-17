@@ -19,16 +19,21 @@ import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 public class DragonPlaceholderAPI extends PlaceholderExpansion {
     DragonSlayer plugin;
 
-    public DragonPlaceholderAPI(DragonSlayer instance) { this.plugin = instance; }
+    public DragonPlaceholderAPI(final DragonSlayer instance) { this.plugin = instance; }
 
+    @Override
     public String getAuthor() { return "Jeppa"; }
 
+    @Override
     public String getIdentifier() { return this.plugin.getName().toLowerCase(); }
 
+    @Override
     public String getVersion() { return this.plugin.getDescription().getVersion(); }
 
+    @Override
     public boolean canRegister() { return Bukkit.getPluginManager().isPluginEnabled(this.plugin.getName()); }
 
+    @Override
     public boolean register() {
         if (this.canRegister()) {
             try {
@@ -41,12 +46,14 @@ public class DragonPlaceholderAPI extends PlaceholderExpansion {
         return false;
     }
 
+    @Override
     public boolean persist() { return true; }
 
-    public String onPlaceholderRequest(Player player, String identifier) {
+    @Override
+    public String onPlaceholderRequest(final Player player, final String identifier) {
         if (identifier.equals("prefix")) {
             if (this.plugin.configManager.getPrefixEnabled() && this.plugin.getSlayerUUIDString().equals(player.getUniqueId().toString())) {
-                String prefix = this.plugin.configManager.getPrefix();
+                final String prefix = this.plugin.configManager.getPrefix();
                 if (!player.getDisplayName().contains(prefix.trim())) {
                     return prefix;
                 }
@@ -69,9 +76,9 @@ public class DragonPlaceholderAPI extends PlaceholderExpansion {
                 String Mapname = "";
                 if (!identifier.contains("time") && !identifier.equals("nextmap")) {
                     if (identifier.contains("reset")) {
-                        for (WorldRefreshOrReset Res : DragonSlayer.ResetimerList) {
-                            long Runtime = System.currentTimeMillis() / 50L - Res.StartTime;
-                            long Resttime = Res.OrigRuntime - Runtime;
+                        for (final WorldRefreshOrReset Res : DragonSlayer.ResetimerList) {
+                            final long Runtime = System.currentTimeMillis() / 50L - Res.StartTime;
+                            final long Resttime = Res.OrigRuntime - Runtime;
                             if (Resttime > 0L && Resttime <= Nexttime || Nexttime == -1L) {
                                 Nexttime = Resttime;
                                 Mapname = Res.Mapname;
@@ -79,12 +86,12 @@ public class DragonPlaceholderAPI extends PlaceholderExpansion {
                         }
                     }
                 } else {
-                    for (DragonRespawn Resp : this.plugin.timerManager.RespawnList) {
-                        long Runtime = System.currentTimeMillis() / 50L - Resp.StartTime;
-                        long Resttime = Resp.OrigRuntime - Runtime;
+                    for (final DragonRespawn Resp : this.plugin.timerManager.RespawnList) {
+                        final long Runtime = System.currentTimeMillis() / 50L - Resp.StartTime;
+                        final long Resttime = Resp.OrigRuntime - Runtime;
                         if (Resttime > 0L && Resttime <= Nexttime || Nexttime == -1L) {
                             Nexttime = Resttime;
-                            Mapname = Resp.Mapname;
+                            Mapname = Resp.worldName;
                         }
                     }
                 }
@@ -102,24 +109,24 @@ public class DragonPlaceholderAPI extends PlaceholderExpansion {
             }
 
             if (identifier.startsWith("place_")) {
-                String uuid = player.getUniqueId().toString();
-                ConfigurationSection allScores = this.plugin.leaderManager.Leader.getConfigurationSection("Scores");
+                final String uuid = player.getUniqueId().toString();
+                final ConfigurationSection allScores = this.plugin.leaderManager.Leader.getConfigurationSection("Scores");
                 if (allScores != null) {
-                    String Str = identifier.substring(identifier.indexOf("_") + 1);
-                    String numStr = Str.replaceAll("[_a-zA-Z]", "");
-                    int num = Integer.valueOf(!numStr.isEmpty() ? numStr : "0");
+                    final String Str = identifier.substring(identifier.indexOf("_") + 1);
+                    final String numStr = Str.replaceAll("[_a-zA-Z]", "");
+                    final int num = Integer.valueOf(!numStr.isEmpty() ? numStr : "0");
                     if (num > 0) {
                         String scoreStr = "";
                         String pName = "";
                         String uid = "NONE";
                         if (LeaderManager.sortKillList.size() >= num) {
-                            Entry<String, Object> id = (Entry<String, Object>) LeaderManager.sortKillList.get(num - 1);
+                            final Entry<String, Object> id = (Entry<String, Object>) LeaderManager.sortKillList.get(num - 1);
                             if (id != null) {
-                                int score = ((MemorySection) id.getValue()).getInt("score");
+                                final int score = ((MemorySection) id.getValue()).getInt("score");
                                 scoreStr = !String.valueOf(score).isEmpty() ? String.valueOf(score)
                                         : this.plugin.configManager.getNoRankScorePlaceholder();
                                 uid = (String) id.getKey();
-                                OfflinePlayer player_ = Bukkit.getOfflinePlayer(UUID.fromString(uid.trim()));
+                                final OfflinePlayer player_ = Bukkit.getOfflinePlayer(UUID.fromString(uid.trim()));
                                 pName = player_.getName();
                                 if (pName == null || pName.isEmpty()) {
                                     pName = this.plugin.configManager.getUnknownNamePlaceholder();
@@ -131,7 +138,7 @@ public class DragonPlaceholderAPI extends PlaceholderExpansion {
                         }
 
                         if (Str.contains("_")) {
-                            String ident2 = Str.substring(Str.lastIndexOf("_") + 1).trim().toLowerCase();
+                            final String ident2 = Str.substring(Str.lastIndexOf("_") + 1).trim().toLowerCase();
                             if (ident2.equals("name")) {
                                 return pName;
                             }
@@ -156,14 +163,15 @@ public class DragonPlaceholderAPI extends PlaceholderExpansion {
                 }
             } else {
                 if (identifier.equals("mykills")) {
-                    String myScore = this.plugin.leaderManager.Leader.getString("Scores." + player.getUniqueId().toString() + ".score");
+                    final String myScore = this.plugin.leaderManager.Leader
+                            .getString("Scores." + player.getUniqueId().toString() + ".score");
                     return myScore != null ? myScore : "0";
                 }
 
                 if (identifier.equals("myplace")) {
-                    String uuid = player.getUniqueId().toString();
-                    List<String> retVal = new ArrayList<String>();
-                    LeaderManager.sortKillList.forEach((uidx) -> {
+                    final String uuid = player.getUniqueId().toString();
+                    final List<String> retVal = new ArrayList<String>();
+                    LeaderManager.sortKillList.forEach(uidx -> {
                         if (((String) uidx.getKey()).equals(uuid)) {
                             retVal.add(String.valueOf(LeaderManager.sortKillList.indexOf(uidx) + 1));
                         }
@@ -173,7 +181,7 @@ public class DragonPlaceholderAPI extends PlaceholderExpansion {
                 }
 
                 if (identifier.equals("slayer")) {
-                    String slayer = this.plugin.configManager.getSlayerPAPINick();
+                    final String slayer = this.plugin.configManager.getSlayerPAPINick();
                     return slayer != null ? slayer : "";
                 }
             }
@@ -182,9 +190,9 @@ public class DragonPlaceholderAPI extends PlaceholderExpansion {
         return "";
     }
 
-    private String getTimerParsed(String Mapname, String identifier) {
-        String[] nextSpawn = this.plugin.getWorldsNextSpawnsOrReset(Mapname, true, false);
-        String[] nextReset = this.plugin.getWorldsNextSpawnsOrReset(Mapname, false, true);
+    private String getTimerParsed(final String Mapname, final String identifier) {
+        final String[] nextSpawn = this.plugin.getWorldsNextSpawnsOrReset(Mapname, true, false);
+        final String[] nextReset = this.plugin.getWorldsNextSpawnsOrReset(Mapname, false, true);
         if (nextSpawn != null) {
             if (identifier.equals("timer")) {
                 return Mapname + ": " + String.format("%s Day(s), %s:%s:%s", nextSpawn[0], nextSpawn[1], nextSpawn[2], nextSpawn[3]);
@@ -238,7 +246,8 @@ public class DragonPlaceholderAPI extends PlaceholderExpansion {
         return null;
     }
 
-    public String onRequest(OfflinePlayer player, String identifier) {
+    @Override
+    public String onRequest(final OfflinePlayer player, final String identifier) {
         return player != null && player.isOnline() ? this.onPlaceholderRequest((Player) player, identifier) : null;
     }
 }

@@ -45,60 +45,61 @@ import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 public class PlayerListener implements Listener {
     DragonSlayer plugin;
 
-    public PlayerListener(DragonSlayer instance) { this.plugin = instance; }
+    public PlayerListener(final DragonSlayer instance) { this.plugin = instance; }
 
     @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        Player p = event.getPlayer();
-        World TheWorld = p.getWorld();
-        if (this.plugin.checkWorld(TheWorld.getName().toLowerCase())) {
+    public void onPlayerJoin(final PlayerJoinEvent event) {
+        final Player p = event.getPlayer();
+        final World world = p.getWorld();
+        if (this.plugin.checkWorld(world.getName().toLowerCase())) {
             this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
-                this.setDragsKilledAndTeleport(TheWorld, false);
-                this.plugin.handleBossbar(TheWorld);
-                this.checkMissingTimers(TheWorld.getName().toLowerCase(), p);
+                this.setDragsKilledAndTeleport(world, false);
+                this.plugin.handleBossbar(world);
+                this.checkMissingTimers(world.getName().toLowerCase(), p);
                 this.plugin.setTimerdisplayToPlayer(p);
             }, 120L);
         }
 
         this.plugin.setTabListName(p);
-        this.sendNPCClientPackets(TheWorld, p);
+        this.sendNPCClientPackets(world, p);
     }
 
     @EventHandler
-    public void onPlayerUseTransferportal(PlayerTeleportEvent event) {
+    public void onPlayerUseTransferportal(final PlayerTeleportEvent event) {
         if (event.getCause().compareTo(TeleportCause.END_GATEWAY) == 0) {
-            World TheWorld = event.getFrom().getWorld();
-            String worldname = TheWorld.getName().toLowerCase();
-            if (this.plugin.checkWorld(worldname)) {
+            final World world = event.getFrom().getWorld();
+            final String worldName = world.getName().toLowerCase();
+            if (this.plugin.checkWorld(worldName)) {
                 this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
-                    this.setDragsKilledAndTeleport(TheWorld, false);
-                    this.plugin.handleBossbar(TheWorld);
+                    this.setDragsKilledAndTeleport(world, false);
+                    this.plugin.handleBossbar(world);
                 }, 60L);
-                Location getFromLoc = event.getFrom();
-                Location teleportTargetLoc = event.getTo();
-                Location mapCenter = new Location(TheWorld, 0.0D, (double) teleportTargetLoc.getBlockY(), 0.0D);
+                final Location getFromLoc = event.getFrom();
+                final Location teleportTargetLoc = event.getTo();
+                final Location mapCenter = new Location(world, 0.0D, (double) teleportTargetLoc.getBlockY(), 0.0D);
                 if (teleportTargetLoc.distance(mapCenter) > 127.0D) {
                     boolean found = false;
 
                     for (int x = -1; x <= 1; ++x) {
                         for (int z = -1; z <= 1; ++z) {
-                            Chunk gwChunk = getFromLoc.getBlock().getRelative(x * 16, 0, z * 16).getChunk();
-                            BlockState[] tileEnts = gwChunk.getTileEntities();
+                            final Chunk gwChunk = getFromLoc.getBlock().getRelative(x * 16, 0, z * 16).getChunk();
+                            final BlockState[] tileEnts = gwChunk.getTileEntities();
 
-                            for (BlockState tileEnt : tileEnts) {
+                            for (final BlockState tileEnt : tileEnts) {
                                 if (tileEnt instanceof EndGateway) {
-                                    Location sourceGWLoc = tileEnt.getLocation();
-                                    Location targetLoc = ((EndGateway) tileEnt).getExitLocation();
+                                    final Location sourceGWLoc = tileEnt.getLocation();
+                                    final Location targetLoc = ((EndGateway) tileEnt).getExitLocation();
                                     if (targetLoc != null) {
-                                        if (this.plugin.configManager.getFixGateways(worldname)
+                                        if (this.plugin.configManager.getFixGateways(worldName)
                                                 && mapCenter.distance(sourceGWLoc) > 127.0D) {
-                                            Location exitLoc = DragonSlayer.getClosestGateway(TheWorld, sourceGWLoc);
+                                            Location exitLoc = DragonSlayer.getClosestGateway(world, sourceGWLoc);
                                             if (exitLoc == null) {
-                                                exitLoc = new Location(TheWorld, 20.0D, (double) teleportTargetLoc.getBlockY(), 20.0D);
+                                                exitLoc = new Location(world, 20.0D, (double) teleportTargetLoc.getBlockY(), 20.0D);
                                             }
 
                                             if (targetLoc.getBlock().getType() == Material.END_GATEWAY) {
-                                                Location testExitLoc2 = ((EndGateway) targetLoc.getBlock().getState()).getExitLocation();
+                                                final Location testExitLoc2 = ((EndGateway) targetLoc.getBlock().getState())
+                                                        .getExitLocation();
                                                 if (testExitLoc2 != null && testExitLoc2.distance(exitLoc) < 90.0D) {
                                                     exitLoc = testExitLoc2;
                                                 }
@@ -153,10 +154,10 @@ public class PlayerListener implements Listener {
 
     }
 
-    private void removeStackedGateway(Location removeArea) {
+    private void removeStackedGateway(final Location removeArea) {
         this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
             if (removeArea != null) {
-                int y = removeArea.getBlockY();
+                final int y = removeArea.getBlockY();
 
                 for (int y2 = y; y2 <= (y + 6 <= 255 ? y + 6 : 255); ++y2) {
                     removeArea.setY((double) y2);
@@ -174,18 +175,18 @@ public class PlayerListener implements Listener {
         }, 0L);
     }
 
-    private void setDragsKilledAndTeleport(World TheWorld, boolean teleport) {
-        Collection<EnderDragon> EntityList = TheWorld.getEntitiesByClass(EnderDragon.class);
-        String Mapname = TheWorld.getName().toLowerCase();
+    private void setDragsKilledAndTeleport(final World world, final boolean teleport) {
+        final Collection<EnderDragon> EntityList = world.getEntitiesByClass(EnderDragon.class);
+        final String Mapname = world.getName().toLowerCase();
         int y = 0;
-        int Playercount = teleport ? this.plugin.getPlayerCount(TheWorld.getName().toLowerCase()) : 0;
+        final int Playercount = teleport ? this.plugin.getPlayerCount(world.getName().toLowerCase()) : 0;
 
-        for (EnderDragon Dragon : EntityList) {
+        for (final EnderDragon Dragon : EntityList) {
             if (Dragon.isValid()) {
                 if (this.plugin.configManager.getDragonTeleport(Mapname) && Playercount == 1) {
-                    int dragonId = this.plugin.getDragonIDMeta(Dragon);
+                    final int dragonId = this.plugin.getDragonIDMeta(Dragon);
                     if (this.plugin.checkDSLDragon(Dragon)) {
-                        Dragon.teleport(new Location(TheWorld, (double) this.plugin.configManager.getPortalX(Mapname, dragonId),
+                        Dragon.teleport(new Location(world, (double) this.plugin.configManager.getPortalX(Mapname, dragonId),
                                 (double) (75 + y), (double) this.plugin.configManager.getPortalZ(Mapname, dragonId)));
                         y += 8;
                     }
@@ -198,21 +199,21 @@ public class PlayerListener implements Listener {
     }
 
     @EventHandler
-    public void worldChange(PlayerChangedWorldEvent event) {
-        Player p = event.getPlayer();
-        String fromWorld = event.getFrom().getName();
+    public void worldChange(final PlayerChangedWorldEvent event) {
+        final Player p = event.getPlayer();
+        final String fromWorld = event.getFrom().getName();
         if (this.plugin.checkWorld(fromWorld)) {
             DragonSlayer.deletePlayersBossBars(p);
             this.plugin.delTimerdisplayFromPlayer(p);
         }
 
-        World toWorld = p.getWorld();
-        String gotoWorld = toWorld.getName().toLowerCase();
+        final World toWorld = p.getWorld();
+        final String gotoWorld = toWorld.getName().toLowerCase();
         if (this.plugin.checkWorld(gotoWorld)) {
             this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
-                int existentDragons = this.plugin.getDragonCount(gotoWorld);
+                final int existentDragons = this.plugin.getDragonCount(gotoWorld);
                 this.setDragsKilledAndTeleport(toWorld, true);
-                String ProtectMessage = this.plugin.configManager.getProtectMessage(toWorld.getName());
+                final String ProtectMessage = this.plugin.configManager.getProtectMessage(toWorld.getName());
                 if (!ProtectMessage.equals("")) {
                     if (ProtectMessage.contains("$amount")) {
                         p.sendMessage(ChatColor.DARK_PURPLE + ProtectMessage.replace("$amount", String.valueOf(existentDragons)));
@@ -233,29 +234,29 @@ public class PlayerListener implements Listener {
         this.sendNPCClientPackets(toWorld, p);
     }
 
-    private void sendNPCClientPackets(World TheWorld, Player p) {
+    private void sendNPCClientPackets(final World world, final Player p) {
         if (this.plugin.getStatueVersion() == 2) {
-            World statueWorld = this.plugin.getArmorstandWorld();
-            if (TheWorld.equals(statueWorld) && DragonSlayer.protLibHandler != null) {
+            final World statueWorld = this.plugin.getArmorstandWorld();
+            if (world.equals(statueWorld) && DragonSlayer.protLibHandler != null) {
                 DragonSlayer.protLibHandler.sendNPCClientPacket(p);
             }
 
         }
     }
 
-    private void checkMissingTimers(String gotoWorld, Player p) {
+    private void checkMissingTimers(final String gotoWorld, final Player p) {
         boolean firstJoinPossible = false;
         if (this.plugin.configManager.getfirstjoin(gotoWorld) && !this.plugin.timerManager.checkPlayerOnList(p, gotoWorld)) {
             firstJoinPossible = true;
         }
 
         if (this.plugin.configManager.getAutofix(gotoWorld) && this.plugin.configManager.getDelay(gotoWorld) > 0 || firstJoinPossible) {
-            int missingDragons = this.plugin.missingDragons(gotoWorld);
+            final int missingDragons = this.plugin.missingDragons(gotoWorld);
             if (missingDragons > 0) {
                 for (int i = 0; i < missingDragons; ++i) {
-                    DragonRespawn Resp = new DragonRespawn(this.plugin);
-                    Resp.Mapname = gotoWorld;
-                    int runduration = (firstJoinPossible ? 40 : this.plugin.configManager.getDelay(gotoWorld)) + i * 60;
+                    final DragonRespawn Resp = new DragonRespawn(this.plugin);
+                    Resp.worldName = gotoWorld;
+                    final int runduration = (firstJoinPossible ? 40 : this.plugin.configManager.getDelay(gotoWorld)) + i * 60;
                     Resp.OrigRuntime = (long) runduration;
                     this.plugin.getServer().getScheduler().runTaskLater(this.plugin, Resp, (long) runduration);
                     this.plugin.getLogger().info("Additional timer for dragonrespawn in world " + gotoWorld + " started...");
@@ -269,11 +270,11 @@ public class PlayerListener implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
-    public void playerChat(AsyncPlayerChatEvent e) {
+    public void playerChat(final AsyncPlayerChatEvent e) {
         if (!DragonSlayer.EssChEnabled) {
-            Player p = e.getPlayer();
+            final Player p = e.getPlayer();
             if (this.plugin.configManager.getPrefixEnabled() && this.plugin.getSlayerUUIDString().equals(p.getUniqueId().toString())) {
-                String prefix = this.plugin.configManager.getPrefix();
+                final String prefix = this.plugin.configManager.getPrefix();
                 if (!p.getDisplayName().contains(this.plugin.configManager.getPrefix().trim())
                         && (!DragonSlayer.UCenabled && !DragonSlayer.PAPIenabled || this.plugin.configManager.getForcePrefix())) {
                     if (!this.plugin.configManager.getPrefixAsSuffix()) {
@@ -288,11 +289,11 @@ public class PlayerListener implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
-    public void playerEssentialsChat(AsyncPlayerChatEvent e) {
+    public void playerEssentialsChat(final AsyncPlayerChatEvent e) {
         if (DragonSlayer.EssChEnabled) {
-            Player p = e.getPlayer();
+            final Player p = e.getPlayer();
             if (this.plugin.configManager.getPrefixEnabled() && this.plugin.getSlayerUUIDString().equals(p.getUniqueId().toString())) {
-                String prefix = this.plugin.configManager.getPrefix();
+                final String prefix = this.plugin.configManager.getPrefix();
                 if (!p.getDisplayName().contains(this.plugin.configManager.getPrefix().trim())
                         && (!DragonSlayer.UCenabled && !DragonSlayer.PAPIenabled || this.plugin.configManager.getForcePrefix())) {
                     e.setFormat(e.getFormat().replace("{DRAGONSLAYER}", ChatColor.translateAlternateColorCodes('&', prefix)));
@@ -305,9 +306,9 @@ public class PlayerListener implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.NORMAL)
-    public void ArmorStandInteract1(PlayerArmorStandManipulateEvent e) {
+    public void ArmorStandInteract1(final PlayerArmorStandManipulateEvent e) {
         if (e.getRightClicked() instanceof ArmorStand) {
-            ArmorStand armorStand = e.getRightClicked();
+            final ArmorStand armorStand = e.getRightClicked();
             if (armorStand.hasMetadata("DSL-AS")) {
                 e.setCancelled(true);
             }
@@ -316,9 +317,9 @@ public class PlayerListener implements Listener {
     }
 
     @EventHandler
-    public void onArmorStandDamage(EntityDamageEvent event) {
+    public void onArmorStandDamage(final EntityDamageEvent event) {
         if (event.getEntity() instanceof ArmorStand) {
-            ArmorStand armorStand = (ArmorStand) event.getEntity();
+            final ArmorStand armorStand = (ArmorStand) event.getEntity();
             if (armorStand.hasMetadata("DSL-AS") && event.getDamage() > 0.0D) {
                 event.setCancelled(true);
             }
@@ -327,15 +328,15 @@ public class PlayerListener implements Listener {
     }
 
     @EventHandler
-    public void onCrystalDamage1(EntityDamageEvent event) {
+    public void onCrystalDamage1(final EntityDamageEvent event) {
 
-        Entity ent = event.getEntity();
+        final Entity ent = event.getEntity();
         if (ent instanceof EnderCrystal) {
-            String world = ent.getWorld().getName().toLowerCase();
+            final String world = ent.getWorld().getName().toLowerCase();
             if (this.plugin.checkWorld(world) && this.plugin.configManager.getRefreshWorld(world)) {
-                Location loc = ent.getLocation();
-                int portX = this.plugin.configManager.getPortalXdef(world);
-                int portZ = this.plugin.configManager.getPortalZdef(world);
+                final Location loc = ent.getLocation();
+                final int portX = this.plugin.configManager.getPortalXdef(world);
+                final int portZ = this.plugin.configManager.getPortalZdef(world);
                 if (loc.getX() == (double) portX + 0.5D && (loc.getZ() == (double) portZ - 2.5D || loc.getZ() == (double) portZ + 3.5D)
                         || loc.getZ() == (double) portZ + 0.5D
                                 && (loc.getX() == (double) portX - 2.5D || loc.getX() == (double) portX + 3.5D)) {
@@ -352,15 +353,15 @@ public class PlayerListener implements Listener {
     }
 
     @EventHandler
-    public void onCrystalDamage2(ExplosionPrimeEvent event) {
-        Entity ent = event.getEntity();
+    public void onCrystalDamage2(final ExplosionPrimeEvent event) {
+        final Entity ent = event.getEntity();
         if (ent.getType().equals(EntityType.TNT)) {
-            String world = ent.getWorld().getName().toLowerCase();
+            final String world = ent.getWorld().getName().toLowerCase();
             if (this.plugin.checkWorld(world) && this.plugin.configManager.getRefreshWorld(world)
                     && this.plugin.isRefreshRunning(ent.getWorld())) {
-                Location loc = ent.getLocation();
-                int portX = this.plugin.configManager.getPortalXdef(world);
-                int portZ = this.plugin.configManager.getPortalZdef(world);
+                final Location loc = ent.getLocation();
+                final int portX = this.plugin.configManager.getPortalXdef(world);
+                final int portZ = this.plugin.configManager.getPortalZdef(world);
                 if (loc.getX() <= (double) (portX + 5) && loc.getX() >= (double) (portX - 5) && loc.getZ() <= (double) (portZ + 5)
                         && loc.getZ() >= (double) (portZ - 5)) {
                     event.setCancelled(true);
@@ -372,10 +373,10 @@ public class PlayerListener implements Listener {
     }
 
     @EventHandler
-    public void CancelEggTeleport(BlockFromToEvent e) {
-        String world = e.getBlock().getWorld().getName().toLowerCase();
+    public void CancelEggTeleport(final BlockFromToEvent e) {
+        final String world = e.getBlock().getWorld().getName().toLowerCase();
         if (this.plugin.checkWorld(world)) {
-            boolean DisableEggTeleport = this.plugin.configManager.getEggCancel(world);
+            final boolean DisableEggTeleport = this.plugin.configManager.getEggCancel(world);
             if (DisableEggTeleport && e.getBlock().getType() == Material.DRAGON_EGG) {
                 e.setCancelled(true);
             }
@@ -384,10 +385,10 @@ public class PlayerListener implements Listener {
     }
 
     @EventHandler
-    public void CancelEggTeleport(BlockBreakEvent e) {
-        String world = e.getBlock().getWorld().getName().toLowerCase();
+    public void CancelEggTeleport(final BlockBreakEvent e) {
+        final String world = e.getBlock().getWorld().getName().toLowerCase();
         if (this.plugin.checkWorld(world)) {
-            boolean DisableEggTeleport = this.plugin.configManager.getEggCancel(world);
+            final boolean DisableEggTeleport = this.plugin.configManager.getEggCancel(world);
             if (DisableEggTeleport && e.getBlock().getType() == Material.DRAGON_EGG) {
                 e.setCancelled(true);
             }
@@ -396,21 +397,21 @@ public class PlayerListener implements Listener {
     }
 
     @EventHandler
-    public void CancelCrystalPlace(PlayerInteractEvent event) {
-        Player p = event.getPlayer();
-        World ThisWorld = p.getWorld();
-        Block bl = event.getClickedBlock();
-        String world = ThisWorld.getName().toLowerCase();
+    public void CancelCrystalPlace(final PlayerInteractEvent event) {
+        final Player p = event.getPlayer();
+        final World ThisWorld = p.getWorld();
+        final Block bl = event.getClickedBlock();
+        final String world = ThisWorld.getName().toLowerCase();
         if (this.plugin.checkWorld(world)) {
             if ((this.plugin.configManager.getCrystalDeny(world) || this.plugin.configManager.getMultiPortal())
                     && event.getAction().equals(Action.RIGHT_CLICK_BLOCK)
                     && (bl.getType().equals(Material.BEDROCK) || bl.getType().equals(Material.OBSIDIAN))) {
-                Material EndCrystal = Material.END_CRYSTAL;
+                final Material EndCrystal = Material.END_CRYSTAL;
 
                 if (event.getMaterial().equals(EndCrystal)) {
-                    Location loc = bl.getLocation();
-                    int portX = this.plugin.configManager.getPortalXdef(world);
-                    int portZ = this.plugin.configManager.getPortalZdef(world);
+                    final Location loc = bl.getLocation();
+                    final int portX = this.plugin.configManager.getPortalXdef(world);
+                    final int portZ = this.plugin.configManager.getPortalZdef(world);
                     if (this.plugin.configManager.getCrystalDeny(world) && loc.getX() <= (double) (portX + 5)
                             && loc.getX() >= (double) (portX - 5) && loc.getZ() <= (double) (portZ + 5)
                             && loc.getZ() >= (double) (portZ - 5)) {
@@ -420,8 +421,8 @@ public class PlayerListener implements Listener {
 
                     if (this.plugin.configManager.getMultiPortal()) {
                         for (int i = 1; i <= this.plugin.configManager.getMaxdragons(world); ++i) {
-                            int portX2 = this.plugin.configManager.getPortalX(world, i, true, true);
-                            int portZ2 = this.plugin.configManager.getPortalZ(world, i, true, true);
+                            final int portX2 = this.plugin.configManager.getPortalX(world, i, true, true);
+                            final int portZ2 = this.plugin.configManager.getPortalZ(world, i, true, true);
                             if (portX2 != portX && portZ2 != portZ && loc.getX() <= (double) (portX2 + 5)
                                     && loc.getX() >= (double) (portX2 - 5) && loc.getZ() <= (double) (portZ2 + 5)
                                     && loc.getZ() >= (double) (portZ2 - 5)) {
@@ -448,7 +449,7 @@ public class PlayerListener implements Listener {
                             if (bl.getState().getBlockData() instanceof CraftBed) {
                                 foundBed = true;
                             }
-                        } catch (Exception var13) {
+                        } catch (final Exception var13) {
                         }
                     }
                 }
@@ -456,7 +457,7 @@ public class PlayerListener implements Listener {
                 foundBed = DragonSlayer.newRoutines14.getBedTag(bl.getType());
 
                 if (foundBed) {
-                    for (EnderDragon drag : this.plugin.getDragonList(ThisWorld, world)) {
+                    for (final EnderDragon drag : this.plugin.getDragonList(ThisWorld, world)) {
                         if (drag.getLocation().distance(bl.getLocation()) < 20.0D) {
                             event.setCancelled(true);
                             bl.breakNaturally();
@@ -469,48 +470,48 @@ public class PlayerListener implements Listener {
     }
 
     @EventHandler
-    public void CancelCrystalPlace2a(BlockPistonExtendEvent event) {
+    public void CancelCrystalPlace2a(final BlockPistonExtendEvent event) {
 
-        ArrayList<Block> blocklist = new ArrayList<Block>();
+        final ArrayList<Block> blocklist = new ArrayList<Block>();
         blocklist.addAll(event.getBlocks());
         this.blockPistonEvent(event, blocklist);
 
     }
 
     @EventHandler
-    public void CancelCrystalPlace2b(BlockPistonRetractEvent event) {
+    public void CancelCrystalPlace2b(final BlockPistonRetractEvent event) {
 
-        ArrayList<Block> blocklist = new ArrayList<Block>();
+        final ArrayList<Block> blocklist = new ArrayList<Block>();
         blocklist.addAll(event.getBlocks());
         this.blockPistonEvent(event, blocklist);
     }
 
-    private void blockPistonEvent(BlockPistonEvent event, ArrayList<Block> blocklist) {
-        BlockFace dir = event.getDirection();
-        Block movedOne = event.getBlock().getRelative(dir);
-        World ThisWorld = movedOne.getWorld();
-        String world = ThisWorld.getName().toLowerCase();
+    private void blockPistonEvent(final BlockPistonEvent event, final ArrayList<Block> blocklist) {
+        final BlockFace dir = event.getDirection();
+        final Block movedOne = event.getBlock().getRelative(dir);
+        final World ThisWorld = movedOne.getWorld();
+        final String world = ThisWorld.getName().toLowerCase();
         if (this.plugin.checkWorld(world)
                 && (this.plugin.configManager.getCrystalDeny(world) || this.plugin.configManager.getMultiPortal())) {
-            int portX = this.plugin.configManager.getPortalXdef(world);
-            int portZ = this.plugin.configManager.getPortalZdef(world);
+            final int portX = this.plugin.configManager.getPortalXdef(world);
+            final int portZ = this.plugin.configManager.getPortalZdef(world);
             if (blocklist.size() == 0) {
                 blocklist.add(movedOne);
             } else {
-                Block addOne = event.getBlock().getRelative(dir, blocklist.size() + 1);
+                final Block addOne = event.getBlock().getRelative(dir, blocklist.size() + 1);
                 if (addOne.getType() == Material.AIR) {
                     blocklist.add(addOne);
                 }
             }
 
-            for (Block block : blocklist) {
-                Entity[] entList = block.getChunk().getEntities();
+            for (final Block block : blocklist) {
+                final Entity[] entList = block.getChunk().getEntities();
                 Entity foundCrystal = null;
                 Location loc = block.getLocation();
 
-                for (Entity ent : entList) {
+                for (final Entity ent : entList) {
                     if (ent instanceof EnderCrystal) {
-                        Location entLoc = ent.getLocation().add(0.1D, 0.0D, 0.1D).getBlock().getLocation();
+                        final Location entLoc = ent.getLocation().add(0.1D, 0.0D, 0.1D).getBlock().getLocation();
                         if (loc.distance(entLoc) <= 1.5D) {
                             foundCrystal = ent;
                             loc = block.getRelative(dir).getLocation();
@@ -529,8 +530,8 @@ public class PlayerListener implements Listener {
 
                     if (this.plugin.configManager.getMultiPortal()) {
                         for (int i = 1; i <= this.plugin.configManager.getMaxdragons(world); ++i) {
-                            int portX2 = this.plugin.configManager.getPortalX(world, i, true, true);
-                            int portZ2 = this.plugin.configManager.getPortalZ(world, i, true, true);
+                            final int portX2 = this.plugin.configManager.getPortalX(world, i, true, true);
+                            final int portZ2 = this.plugin.configManager.getPortalZ(world, i, true, true);
                             if (portX2 != portX && portZ2 != portZ && loc.getX() <= (double) (portX2 + 5)
                                     && loc.getX() >= (double) (portX2 - 5) && loc.getZ() <= (double) (portZ2 + 5)
                                     && loc.getZ() >= (double) (portZ2 - 5)) {
@@ -548,13 +549,13 @@ public class PlayerListener implements Listener {
     }
 
     @EventHandler
-    public void onPlayerMove(PlayerMoveEvent event) {
+    public void onPlayerMove(final PlayerMoveEvent event) {
         if (this.plugin.getStatueVersion() == 2 && DragonSlayer.protLibHandler != null) {
-            Player p = event.getPlayer();
-            Location p_loc = event.getTo();
-            Location as_loc = this.plugin.armorStandLoc(true);
+            final Player p = event.getPlayer();
+            final Location p_loc = event.getTo();
+            final Location as_loc = this.plugin.armorStandLoc(true);
             if (as_loc != null && p_loc.getWorld().equals(as_loc.getWorld())) {
-                double dist = as_loc.distance(p_loc);
+                final double dist = as_loc.distance(p_loc);
                 if (dist <= 10.0D && dist > 9.84D) {
                     DragonSlayer.protLibHandler.sendNPCClientPacket(p);
                 }

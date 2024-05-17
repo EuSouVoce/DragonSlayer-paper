@@ -2,7 +2,7 @@ name: DragonSlayer
 author: Jeppa
 contributor: [mickverm, EuSouVoce]
 main: de.jeppa.DragonSlayer.DragonSlayer
-version: 0.13.0
+version: 0.13.1
 api-version: 1.13
 softdepend:
   [

@@ -5,7 +5,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
+
+import javax.annotation.Nullable;
+
 import java.util.Random;
+import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -18,11 +22,9 @@ import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.block.Block;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.ComplexEntityPart;
-import org.bukkit.entity.EnderCrystal;
 import org.bukkit.entity.EnderDragon;
 import org.bukkit.entity.EnderDragon.Phase;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ExperienceOrb;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -32,6 +34,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.entity.EnderDragonChangePhaseEvent;
 import org.bukkit.event.entity.EntityDamageByBlockEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -52,20 +55,19 @@ import net.milkbowl.vault.economy.EconomyResponse;
 public class DragonEvents implements Listener {
     DragonSlayer plugin;
     Random random = new Random();
-    // $FF: synthetic field
-    private static volatile int[] $SWITCH_TABLE$org$bukkit$entity$EnderDragon$Phase;
+
+    private static volatile int[] EnderDragonPhases;
 
     public DragonEvents(final DragonSlayer instance) { this.plugin = instance; }
 
-    @SuppressWarnings({ "unchecked" })
+    @SuppressWarnings("unchecked")
     @EventHandler
     public void onDragonDeath(final EntityDeathEvent event) {
-        if (event.getEntity() instanceof Entity) {
-            final Entity entity = event.getEntity();
-            final EntityDamageEvent e = entity.getLastDamageCause();
-            final World ThisWorld = entity.getWorld();
-            final String w = ThisWorld.getName().toLowerCase();
-            if (this.plugin.checkWorld(w) && entity instanceof EnderDragon && this.plugin.checkDSLDragon((EnderDragon) entity)) {
+        if (event.getEntity() instanceof final Entity entity) {
+            final @Nullable EntityDamageEvent e = entity.getLastDamageCause();
+            final World world = entity.getWorld();
+            final String worldName = world.getName().toLowerCase();
+            if (this.plugin.checkWorld(worldName) && entity instanceof final EnderDragon dragon && this.plugin.checkDSLDragon(dragon)) {
                 Object damager = null;
 
                 if (e instanceof EntityDamageByEntityEvent) {
@@ -101,33 +103,32 @@ public class DragonEvents implements Listener {
                 }
 
                 if (killer == null) {
-                    killer = ((EnderDragon) entity).getKiller();
+                    killer = dragon.getKiller();
                 }
 
-                final int dragID = this.plugin.getDragonIDMeta((EnderDragon) entity) == -1 ? 0
-                        : this.plugin.getDragonIDMeta((EnderDragon) entity);
+                final int dragID = this.plugin.getDragonIDMeta(dragon) == -1 ? 0 : this.plugin.getDragonIDMeta(dragon);
                 /*
                  * if (dragID == -1) { dragID = 0; }
                  */
                 final int DragonIDPortal = this.plugin.configManager.getMultiPortal() ? dragID : 0;
-                if (!this.plugin.configManager.getEggItem(w)) {
+                if (!this.plugin.configManager.getEggItem(worldName)) {
                     this.dropDragonEgg(entity.getLocation(), DragonIDPortal);
                 } else {
                     this.dropDragonEggItem(event, DragonIDPortal);
                 }
 
-                if (this.plugin.configManager.getSkullItem(w)) {
+                if (this.plugin.configManager.getSkullItem(worldName)) {
                     this.dropDragonHeadItem(event);
                 }
 
-                if (entity.getWorld().getEnvironment() == Environment.THE_END && ((EnderDragon) entity).getDragonBattle() == null) {
-                    this.plugin.setEDBPreviouslyKilled((EnderDragon) entity, true);
+                if (entity.getWorld().getEnvironment() == Environment.THE_END && dragon.getDragonBattle() == null) {
+                    this.plugin.setEDBPreviouslyKilled(dragon, true);
                 }
 
                 boolean slayerSet = false;
-                if (!this.plugin.configManager.getAlternativeReward(w)) {
+                if (!this.plugin.configManager.getAlternativeReward(worldName)) {
                     int XPAmount = 12000;
-                    if (this.plugin.getEnderDragonPreviouslyKilled((EnderDragon) entity)) {
+                    if (this.plugin.getEnderDragonPreviouslyKilled(dragon)) {
                         XPAmount = 500;
                     }
 
@@ -154,15 +155,16 @@ public class DragonEvents implements Listener {
                         if (DragonMeta.get(player) != null && DragonMeta.get(player) > 0.0D) {
                             final double percentage = DragonMeta.get(player) / allDamage;
                             orderList.put(percentage, player);
-                            final double playersDamageReward = percentage * (double) this.plugin.configManager.getDragonExp(w, dragID);
+                            final double playersDamageReward = percentage
+                                    * (double) this.plugin.configManager.getDragonExp(worldName, dragID);
                             player.giveExp((int) playersDamageReward);
-                            String RewardMessage = this.plugin.configManager.getXPRewardMessage(w,
+                            String RewardMessage = this.plugin.configManager.getXPRewardMessage(worldName,
                                     String.valueOf((int) playersDamageReward), dragID);
                             player.sendMessage(RewardMessage);
                             if (DragonSlayer.econ != null) {
-                                final double reward = percentage * this.plugin.configManager.getReward_double(w, dragID);
+                                final double reward = percentage * this.plugin.configManager.getReward_double(worldName, dragID);
                                 final EconomyResponse r = DragonSlayer.econ.depositPlayer(player, reward);
-                                RewardMessage = this.plugin.configManager.getRewardMessage(w, String.valueOf((int) reward), dragID);
+                                RewardMessage = this.plugin.configManager.getRewardMessage(worldName, String.valueOf((int) reward), dragID);
                                 if (r.transactionSuccess() && !RewardMessage.equals("")) {
                                     player.sendMessage(RewardMessage);
                                 }
@@ -175,16 +177,16 @@ public class DragonEvents implements Listener {
                     for (final Entry<Double, Player> es : orderList.entrySet()) {
                         final Player player = (Player) es.getValue();
                         final Double val = (Double) es.getKey();
-                        final List<String> command = this.plugin.configManager.getRankCommand(w, val.intValue(), dragID);
+                        final List<String> command = this.plugin.configManager.getRankCommand(worldName, val.intValue(), dragID);
                         if (command != null && !command.isEmpty()) {
                             final String percentage = String.format("%d", (int) (DragonMeta.get(player) / allDamage * 100.0D + 0.5D));
                             command.replaceAll(com -> com.replace("$player", player.getName())
                                     .replace("$rank", String.valueOf(val.intValue())).replace("$percent", percentage));
-                            this.plugin.myCommandsHandler(command, ThisWorld, player);
+                            this.plugin.myCommandsHandler(command, world, player);
                         }
 
-                        if (this.plugin.configManager.getSlayerByPercent(w) && val.intValue() == 1) {
-                            this.setSlayer(player, w, dragID);
+                        if (this.plugin.configManager.getSlayerByPercent(worldName) && val.intValue() == 1) {
+                            this.setSlayer(player, worldName, dragID);
                             slayerSet = true;
                         }
                     }
@@ -192,14 +194,15 @@ public class DragonEvents implements Listener {
 
                 if (killer != null) {
                     if (!slayerSet) {
-                        this.setSlayer(killer, w, dragID);
+                        this.setSlayer(killer, worldName, dragID);
                     }
 
-                    if (DragonSlayer.econ != null && !this.plugin.configManager.getAlternativeReward(w)) {
-                        final double reward = this.plugin.configManager.getReward_double(w, dragID);
+                    if (DragonSlayer.econ != null && !this.plugin.configManager.getAlternativeReward(worldName)) {
+                        final double reward = this.plugin.configManager.getReward_double(worldName, dragID);
                         if (reward > 0.0D) {
                             final EconomyResponse r = DragonSlayer.econ.depositPlayer(killer, reward);
-                            final String RewardMessage = this.plugin.configManager.getRewardMessage(w, String.valueOf(reward), dragID);
+                            final String RewardMessage = this.plugin.configManager.getRewardMessage(worldName, String.valueOf(reward),
+                                    dragID);
                             if (r.transactionSuccess() && !RewardMessage.equals("")) {
                                 killer.sendMessage(RewardMessage);
                             }
@@ -207,7 +210,7 @@ public class DragonEvents implements Listener {
                     }
                 } else if (damager != null) {
                     // String dName = "";
-                    Component damagerName = Component.empty();
+                    final Component damagerName = Component.empty();
                     if (damager instanceof Player) {
                         // dName = ((Player) damager).getDisplayName();
                         damagerName.append(((Player) damager).displayName());
@@ -224,19 +227,24 @@ public class DragonEvents implements Listener {
 
                     Bukkit.getServer()
                             .broadcast(LegacyComponentSerializer.legacyAmpersand()
-                                    .deserialize(this.plugin.replaceValues(this.plugin.configManager.getDiedMessage(), w)).appendSpace()
-                                    .append(damagerName));
+                                    .deserialize(this.plugin.replaceValues(this.plugin.configManager.getDiedMessage(), worldName))
+                                    .appendSpace().append(damagerName));
                 } else {
-                    Bukkit.getServer().broadcast(LegacyComponentSerializer.legacyAmpersand()
-                            .deserialize(this.plugin.replaceValues(this.plugin.configManager.getDiedMessage() + " " + e.getCause(), w)));
+                    if (e != null) {
+                        Bukkit.getServer().broadcast(LegacyComponentSerializer.legacyAmpersand().deserialize(
+                                this.plugin.replaceValues(this.plugin.configManager.getDiedMessage() + " " + e.getCause(), worldName)));
+                    } else {
+                        Bukkit.getServer().broadcast(LegacyComponentSerializer.legacyAmpersand().deserialize(
+                                this.plugin.replaceValues(this.plugin.configManager.getDiedMessage() + " " + DamageCause.KILL, worldName)));
+                    }
                 }
 
                 this.plugin.setEndGatewayPortals(entity.getWorld());
                 DragonSlayer.resetDragonsBossbar(entity);
                 Location DelPortLoc = null;
-                double TempX = (double) this.plugin.configManager.getPortalX(w, dragID);
-                double TempZ = (double) this.plugin.configManager.getPortalZ(w, dragID);
-                if (this.plugin.configManager.getOldPortal(w)) {
+                double TempX = (double) this.plugin.configManager.getPortalX(worldName, dragID);
+                double TempZ = (double) this.plugin.configManager.getPortalZ(worldName, dragID);
+                if (this.plugin.configManager.getOldPortal(worldName)) {
                     DelPortLoc = DragonSlayer.findPosForPortal(TempX, TempZ, entity.getWorld(), Material.BEDROCK);
                     TempX = entity.getLocation().getX();
                     TempZ = entity.getLocation().getZ();
@@ -257,45 +265,45 @@ public class DragonEvents implements Listener {
                     }, (long) i * 10L);
                 }
 
-                if (this.plugin.configManager.getResetWorld(w) || this.plugin.configManager.getRespawnPlayer(w)
-                        || this.plugin.configManager.getRefreshWorld(w)) {
+                if (this.plugin.configManager.getResetWorld(worldName) || this.plugin.configManager.getRespawnPlayer(worldName)
+                        || this.plugin.configManager.getRefreshWorld(worldName)) {
                     this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
-                        final int aktCount = this.checkCount(w);
+                        final int aktCount = this.checkCount(worldName);
                         if (aktCount <= 0) {
-                            this.plugin.StartWorldResetTimer(w, (long) this.plugin.configManager.getResetDelay(w),
-                                    (long) this.plugin.configManager.getWarnTime(w));
+                            this.plugin.StartWorldResetTimer(worldName, (long) this.plugin.configManager.getResetDelay(worldName),
+                                    (long) this.plugin.configManager.getWarnTime(worldName));
                         }
 
                     });
                 }
 
                 this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
-                    final int delay = this.plugin.configManager.getDelay(w);
-                    if (delay > 0 && !this.plugin.configManager.getNoAutoRespawn(w, dragID)) {
-                        this.plugin.timerManager.StartTimer(w, (long) delay);
+                    final int delay = this.plugin.configManager.getDelay(worldName);
+                    if (delay > 0 && !this.plugin.configManager.getNoAutoRespawn(worldName, dragID)) {
+                        this.plugin.timerManager.StartTimer(worldName, (long) delay);
                     }
 
                     this.plugin.cleanupGlowTeamList();
                 });
                 this.plugin.replaceArmorStand();
-                this.plugin.AtKillCommand(w, killer, (EnderDragon) entity);
+                this.plugin.AtKillCommand(worldName, killer, dragon);
             }
         }
 
     }
 
     @SuppressWarnings("deprecation")
-    private void setSlayer(final Player slayer, final String w, final int dragID) {
+    private void setSlayer(final Player slayer, final String worldName, final int dragonId) {
         final String oldSlayer = this.plugin.getSlayer();
         this.plugin.setSlayer(slayer);
         final String slayerName = this.plugin.getSlayer();
         if (!slayerName.equals(oldSlayer)) {
-            final String KillMessage = this.plugin.configManager.getDragonKillMessage(w, dragID);
+            final String KillMessage = this.plugin.configManager.getDragonKillMessage(worldName, dragonId);
             if (!KillMessage.equals("")) {
                 Bukkit.getServer().broadcastMessage(KillMessage);
             }
         } else {
-            final String ReKillMessage = this.plugin.configManager.getDragonReKillMessage(w, dragID);
+            final String ReKillMessage = this.plugin.configManager.getDragonReKillMessage(worldName, dragonId);
             if (!ReKillMessage.equals("")) {
                 Bukkit.getServer().broadcastMessage(ReKillMessage);
             }
@@ -303,19 +311,41 @@ public class DragonEvents implements Listener {
 
     }
 
-    private int checkCount(final String w) { return this.plugin.getDragonCount(w); }
+    private int checkCount(final String worldName) { return this.plugin.getDragonCount(worldName); }
 
-    private void PortalDelAndSet(final Location PortLoc2, final Location DelPortLoc2, final int DragonID, final int endportal) {
-        final String w = PortLoc2.getWorld().getName().toLowerCase();
-        if (DelPortLoc2 != null) {
-            this.plugin.placePortal(DelPortLoc2, -1);
+    /**
+     * This function deletes and sets a portal at specified locations based on
+     * certain conditions and configurations.
+     * 
+     * @param position     The `position` parameter is of type Location and
+     *                         represents the location where a portal will be
+     *                         placed.
+     * @param deletePortal `DelPortLoc2` is a `Location` object representing the
+     *                         location of a portal that needs to be deleted before
+     *                         setting a new portal.
+     * @param portalId     The `portalId` parameter in the `PortalDelAndSet` method
+     *                         is an integer value that represents the identifier of
+     *                         the portal being manipulated. It is used to determine
+     *                         the specific portal that needs to be created or
+     *                         modified within the plugin's functionality.
+     * @param endportal    The `endportal` parameter in the `PortalDelAndSet` method
+     *                         is an integer that represents the type of portal to
+     *                         be placed at the specified position. It is used to
+     *                         determine the type of portal that will be created
+     *                         when calling the `placePortal` method within the
+     *                         `PortalDelAndSet
+     */
+    private void PortalDelAndSet(final Location position, final Location deletePortal, final int portalId, final int endportal) {
+        final String worldName = position.getWorld().getName().toLowerCase();
+        if (deletePortal != null) {
+            this.plugin.placePortal(deletePortal, -1);
         }
 
-        if (this.plugin.configManager.getCreatePortal(w, DragonID)) {
-            if (PortLoc2.getWorld() == Bukkit.getServer().getWorld(w)) {
-                this.plugin.placePortal(PortLoc2, endportal);
-                if (endportal > 0 && !this.plugin.configManager.checkCreatePortalID(w, DragonID)) {
-                    this.plugin.configManager.setCreatePortal(false, w);
+        if (this.plugin.configManager.getCreatePortal(worldName, portalId)) {
+            if (position.getWorld() == Bukkit.getServer().getWorld(worldName)) {
+                this.plugin.placePortal(position, endportal);
+                if (endportal > 0 && !this.plugin.configManager.checkCreatePortalID(worldName, portalId)) {
+                    this.plugin.configManager.setCreatePortal(false, worldName);
                 }
             } else if (this.plugin.configManager.getVerbosity()) {
                 this.plugin.getLogger().warning("Portal timer was still running while world was new!");
@@ -324,23 +354,24 @@ public class DragonEvents implements Listener {
 
     }
 
-    private void dropDragonEgg(final Location l, final int DragonIDPortal) {
-        final String world = l.getWorld().getName().toLowerCase();
+    private void dropDragonEgg(final Location location, final int portalId) {
+        final String worldName = location.getWorld().getName().toLowerCase();
         final int i = this.random.nextInt(100);
-        if (i < this.plugin.configManager.getDragonEggChance(world) && (!this.plugin.configManager.getCreatePortal(world, DragonIDPortal)
-                || this.plugin.configManager.getCreatePortal(world, DragonIDPortal)
-                        && this.plugin.configManager.getPortalEggChance(world) == 0)) {
-            l.getBlock().setType(Material.DRAGON_EGG);
+        if (i < this.plugin.configManager.getDragonEggChance(worldName) && (!this.plugin.configManager.getCreatePortal(worldName, portalId)
+                || this.plugin.configManager.getCreatePortal(worldName, portalId)
+                        && this.plugin.configManager.getPortalEggChance(worldName) == 0)) {
+            location.getBlock().setType(Material.DRAGON_EGG);
         }
 
     }
 
-    private void dropDragonEggItem(final EntityDeathEvent event, final int DragonIDPortal) {
-        final String world = event.getEntity().getWorld().getName().toLowerCase();
-        final int i = this.random.nextInt(100);
-        if (i < this.plugin.configManager.getDragonEggChance(world) && (!this.plugin.configManager.getCreatePortal(world, DragonIDPortal)
-                || this.plugin.configManager.getCreatePortal(world, DragonIDPortal)
-                        && this.plugin.configManager.getPortalEggChance(world) == 0)) {
+    private void dropDragonEggItem(final EntityDeathEvent event, final int portalId) {
+        final String worldName = event.getEntity().getWorld().getName().toLowerCase();
+        final int random = this.random.nextInt(100);
+        if (random < this.plugin.configManager.getDragonEggChance(worldName)
+                && (!this.plugin.configManager.getCreatePortal(worldName, portalId)
+                        || this.plugin.configManager.getCreatePortal(worldName, portalId)
+                                && this.plugin.configManager.getPortalEggChance(worldName) == 0)) {
             final ItemStack dragEggItem = new ItemStack(Material.DRAGON_EGG);
             event.getEntity().getWorld().dropItem(event.getEntity().getLocation(), dragEggItem);
         }
@@ -349,8 +380,8 @@ public class DragonEvents implements Listener {
 
     private void dropDragonHeadItem(final EntityDeathEvent event) {
         final String world = event.getEntity().getWorld().getName().toLowerCase();
-        final int i = this.random.nextInt(100);
-        if (i < this.plugin.configManager.getSkullChance(world)) {
+        final int random = this.random.nextInt(100);
+        if (random < this.plugin.configManager.getSkullChance(world)) {
             final Collection<ItemStack> Reward = new HashSet<ItemStack>();
             ItemStack DragonSkull = null;
 
@@ -362,9 +393,9 @@ public class DragonEvents implements Listener {
 
     }
 
-    private void dropDragonXP(final Entity entity, final int Amount, final int dragID) {
+    private void dropDragonXP(final Entity entity, final int Amount, final int dragonId) {
         final World world = entity.getWorld();
-        int PlannedAmount = this.plugin.configManager.getDragonExp(world.getName().toLowerCase(), dragID);
+        int PlannedAmount = this.plugin.configManager.getDragonExp(world.getName().toLowerCase(), dragonId);
         if (PlannedAmount > Amount) {
             PlannedAmount -= Amount;
             final int div = DragonSlayer.spigot && Bukkit.spigot().getConfig().getDouble("world-settings.default.merge-radius.exp") == 0.0D
@@ -380,14 +411,13 @@ public class DragonEvents implements Listener {
 
     @EventHandler
     public void onDragonUseTransferportal(final EntityTeleportEvent event) {
-        Entity e = event.getEntity();
-        if (e instanceof ComplexEntityPart) {
-            e = ((ComplexEntityPart) e).getParent();
-        }
+        Entity entitiy = event.getEntity();
+        if (entitiy instanceof final ComplexEntityPart complexEntityPart)
+            entitiy = complexEntityPart.getParent();
 
         final Location fromLoc = event.getFrom();
         final World theWorld = fromLoc.getWorld();
-        if (e instanceof EnderDragon && this.plugin.checkWorld(theWorld.getName().toLowerCase())) {
+        if (entitiy instanceof EnderDragon && this.plugin.checkWorld(theWorld.getName().toLowerCase())) {
             final Block check = DragonSlayer.CheckGatewaysForDragon(theWorld, fromLoc, 14);
             if (check != null) {
                 event.setCancelled(true);
@@ -399,10 +429,11 @@ public class DragonEvents implements Listener {
 
     @EventHandler
     public void onOrbSpawn(final EntityTargetLivingEntityEvent event) {
-        final Entity orb = event.getEntity();
-        final String w = orb.getWorld().getName().toString().toLowerCase();
-        if (this.plugin.checkWorld(w) && orb.getWorld().getEnvironment() == Environment.THE_END && orb instanceof ExperienceOrb
-                && this.plugin.configManager.getAlternativeReward(w) && ((ExperienceOrb) orb).getExperience() > 499) {
+        final Entity entity = event.getEntity();
+        final String worldName = entity.getWorld().getName().toString().toLowerCase();
+        if (this.plugin.checkWorld(worldName) && entity.getWorld().getEnvironment() == Environment.THE_END
+                && entity instanceof final ExperienceOrb orb && this.plugin.configManager.getAlternativeReward(worldName)
+                && orb.getExperience() > 499) {
             event.setCancelled(true);
             orb.remove();
         }
@@ -412,10 +443,10 @@ public class DragonEvents implements Listener {
     @EventHandler
     public void onOrbGrab(final PlayerExpChangeEvent event) {
         final Player player = event.getPlayer();
-        final String w = player.getWorld().getName().toLowerCase();
-        if (this.plugin.checkWorld(w) && player.getWorld().getEnvironment() == Environment.THE_END) {
+        final String worldName = player.getWorld().getName().toLowerCase();
+        if (this.plugin.checkWorld(worldName) && player.getWorld().getEnvironment() == Environment.THE_END) {
             for (final Entity orb : player.getNearbyEntities(2.0D, 2.0D, 2.0D)) {
-                if (orb instanceof ExperienceOrb && this.plugin.configManager.getAlternativeReward(w)
+                if (orb instanceof ExperienceOrb && this.plugin.configManager.getAlternativeReward(worldName)
                         && ((ExperienceOrb) orb).getExperience() > 499 && event.getAmount() == ((ExperienceOrb) orb).getExperience()) {
                     event.setAmount(0);
                     orb.remove();
@@ -428,101 +459,96 @@ public class DragonEvents implements Listener {
     @SuppressWarnings("deprecation")
     @EventHandler(priority = EventPriority.HIGH)
     public void onDragonSpawn(final CreatureSpawnEvent e) {
-        final Entity ent = e.getEntity();
-        if (ent.getTicksLived() <= 10) {
-            final World ThisWorld = ent.getWorld();
-            final String w = ThisWorld.getName().toLowerCase();
-            if (this.plugin.checkWorld(w) && e.getEntityType() == EntityType.ENDER_DRAGON) {
-                final EnderDragon ThisDrag = (EnderDragon) ent;
-                SpawnReason commandReason = null;
+        final Entity entitiy = e.getEntity();
+        if (entitiy.getTicksLived() <= 10) {
+            final World world = entitiy.getWorld();
+            final String worldName = world.getName().toLowerCase();
+            if (this.plugin.checkWorld(worldName) && entitiy instanceof final EnderDragon dragon) {
+                final SpawnReason commandReason = SpawnReason.COMMAND;
 
-                try {
-                    commandReason = SpawnReason.COMMAND;
-                } catch (final NoSuchFieldError var19) {
-                }
-
-                if (this.plugin.checkDSLDragon(ThisDrag) || ThisWorld.getEnvironment() == Environment.THE_END
+                if (this.plugin.checkDSLDragon(dragon) || world.getEnvironment() == Environment.THE_END
                         && (commandReason != null && e.getSpawnReason().equals(commandReason)
                                 || e.getSpawnReason().equals(SpawnReason.DEFAULT))
-                        && this.plugin.checkOrigDragon(ThisDrag)) {
-                    this.plugin.OrigEnderDragonSetKilled(ThisDrag);
+                        && this.plugin.checkOrigDragon(dragon)) {
+                    this.plugin.OrigEnderDragonSetKilled(dragon);
                     this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
-                        if (ThisDrag != null) {
-                            this.plugin.OrigEnderDragonSetKilled(ThisDrag);
+                        if (dragon != null) {
+                            this.plugin.OrigEnderDragonSetKilled(dragon);
                         }
 
                     }, 2L);
-                    if (this.plugin.ProtectResetWorlds.contains(ThisWorld)) {
-                        this.plugin.ProtectResetWorlds.remove(ThisWorld);
-                        if (this.plugin.configManager.getDisableOrigDragonRespawn(w)) {
+                    if (this.plugin.ProtectResetWorlds.contains(world)) {
+                        this.plugin.ProtectResetWorlds.remove(world);
+                        if (this.plugin.configManager.getDisableOrigDragonRespawn(worldName)) {
                             e.setCancelled(true);
-                            ThisDrag.remove();
+                            dragon.remove();
                             return;
                         }
                     }
 
-                    this.plugin.findAndUseEndgateways(w);
-                    final int aktCountByCounting = this.plugin.getDragonCount(w);
-                    final int maxCount = this.plugin.configManager.getOneByOne(w) ? 1 : this.plugin.configManager.getMaxdragons(w);
-                    final int Delay = this.plugin.configManager.getDelay(w);
+                    this.plugin.findAndUseEndgateways(worldName);
+                    final int aktCountByCounting = this.plugin.getDragonCount(worldName);
+                    final int maxCount = this.plugin.configManager.getOneByOne(worldName) ? 1
+                            : this.plugin.configManager.getMaxdragons(worldName);
+                    final int Delay = this.plugin.configManager.getDelay(worldName);
                     if (aktCountByCounting >= maxCount && Delay != 0) {
                         e.setCancelled(true);
-                        ThisDrag.remove();
+                        dragon.remove();
                     } else {
-                        ThisDrag.setPhase(Phase.CIRCLING);
-                        final String[] dragNameAndID = this.plugin.configManager.getDragonNameAndID(w);
+                        dragon.setPhase(Phase.CIRCLING);
+                        final String[] dragNameAndID = this.plugin.configManager.getDragonNameAndID(worldName);
                         final String dragName = dragNameAndID[0];
                         final int dragonId = Integer.parseInt(dragNameAndID[1]);
                         if (!dragName.isEmpty()) {
-                            ThisDrag.setCustomName(dragName);
+                            dragon.setCustomName(dragName);
                         }
 
-                        ThisDrag.setCustomNameVisible(this.plugin.configManager.getDisplayDragonName(w));
-                        final boolean glow = this.plugin.configManager.getGlowEffect(w);
+                        dragon.setCustomNameVisible(this.plugin.configManager.getDisplayDragonName(worldName));
+                        final boolean glow = this.plugin.configManager.getGlowEffect(worldName);
                         if (glow) {
-                            this.plugin.handleGlowTeams(ThisWorld, dragonId, ThisDrag.getUniqueId().toString());
+                            this.plugin.handleGlowTeams(world, dragonId, dragon.getUniqueId().toString());
                         }
 
-                        ThisDrag.setGlowing(glow);
-                        this.plugin.setDragonIDMeta(ThisDrag, dragonId);
-                        if (DragonSlayer.getDragonPosMeta(ThisDrag) == null) {
-                            this.plugin.setDragonPosMeta(ThisDrag, ThisDrag.getLocation());
+                        dragon.setGlowing(glow);
+                        this.plugin.setDragonIDMeta(dragon, dragonId);
+                        if (DragonSlayer.getDragonPosMeta(dragon) == null) {
+                            this.plugin.setDragonPosMeta(dragon, dragon.getLocation());
                         }
 
-                        final int newHealth = this.plugin.configManager.getDragonHealth_n(w, dragonId);
+                        final int newHealth = this.plugin.configManager.getDragonHealth_n(worldName, dragonId);
                         if (newHealth > 0) {
-                            ThisDrag.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue((double) newHealth);
-                            ThisDrag.setHealth((double) newHealth);
+                            dragon.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue((double) newHealth);
+                            dragon.setHealth((double) newHealth);
                         }
 
-                        if (!ThisDrag.getAttribute(Attribute.GENERIC_FOLLOW_RANGE).getModifiers().isEmpty()) {
-                            ThisDrag.getAttribute(Attribute.GENERIC_FOLLOW_RANGE).removeModifier((AttributeModifier) ThisDrag
+                        if (!dragon.getAttribute(Attribute.GENERIC_FOLLOW_RANGE).getModifiers().isEmpty()) {
+                            dragon.getAttribute(Attribute.GENERIC_FOLLOW_RANGE).removeModifier((AttributeModifier) dragon
                                     .getAttribute(Attribute.GENERIC_FOLLOW_RANGE).getModifiers().iterator().next());
                         }
 
-                        final int range = this.plugin.configManager.getDragonRange(w, dragonId);
-                        ThisDrag.getAttribute(Attribute.GENERIC_FOLLOW_RANGE).setBaseValue((double) range);
-                        final BossBar BossBar = this.plugin.findFreeBar(w);
+                        final int range = this.plugin.configManager.getDragonRange(worldName, dragonId);
+                        dragon.getAttribute(Attribute.GENERIC_FOLLOW_RANGE).setBaseValue((double) range);
+                        final BossBar BossBar = this.plugin.findFreeBar(worldName);
                         if (BossBar != null) {
-                            BossBar.setTitle(ThisDrag.getName());
-                            this.plugin.setBossBarAmountNOW(ThisDrag, BossBar);
-                            DragonSlayer.putBossBarToDragon(ThisDrag, BossBar);
-                            this.plugin.FindPlayerAndAddToBossBar(BossBar, ThisDrag);
+                            BossBar.setTitle(dragon.getName());
+                            this.plugin.setBossBarAmountNOW(dragon, BossBar);
+                            DragonSlayer.putBossBarToDragon(dragon, BossBar);
+                            this.plugin.FindPlayerAndAddToBossBar(BossBar, dragon);
                         }
 
-                        this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> this.plugin.setDragonNavi(ThisDrag), 2L);
-                        this.PlayDragonSound(ThisWorld);
-                        final String RespawnMessage = this.plugin.configManager.getRespawnMessage(w, dragonId);
+                        this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> this.plugin.setDragonNavi(dragon), 2L);
+                        this.PlayDragonSound(world);
+                        final String RespawnMessage = this.plugin.configManager.getRespawnMessage(worldName, dragonId);
                         if (!RespawnMessage.equals("")) {
                             Bukkit.getServer().broadcastMessage(RespawnMessage);
                         }
 
-                        final List<String> command = this.plugin.configManager.getSpawnCommand(w, dragonId);
+                        final List<String> command = this.plugin.configManager.getSpawnCommand(worldName, dragonId);
                         if (!command.isEmpty()) {
-                            this.plugin.myCommandsHandler(command, ThisWorld, (Player) null);
+                            this.plugin.myCommandsHandler(command, world, (Player) null);
                         }
 
-                        this.plugin.stopResetTimer(w);
+                        this.plugin.stopResetTimer(worldName);
                     }
                 }
             }
@@ -530,13 +556,13 @@ public class DragonEvents implements Listener {
         }
     }
 
-    private void PlayDragonSound(final World ThisWorld) {
-        Sound Ton = Sound.ENTITY_ENDER_DRAGON_GROWL;
+    private void PlayDragonSound(final World world) {
+        final Sound growl = Sound.ENTITY_ENDER_DRAGON_GROWL;
 
-        for (final Player p : Bukkit.getOnlinePlayers()) {
-            if (Ton != null && (this.plugin.configManager.getNoSpawnSound() && p.getWorld().equals(ThisWorld)
+        for (final Player player : Bukkit.getOnlinePlayers()) {
+            if (growl != null && (this.plugin.configManager.getNoSpawnSound() && player.getWorld().equals(world)
                     || !this.plugin.configManager.getNoSpawnSound())) {
-                p.playSound(p.getLocation(), Ton, 1.0F, 0.0F);
+                player.playSound(player.getLocation(), growl, 1.0F, 0.0F);
             }
         }
 
@@ -544,32 +570,34 @@ public class DragonEvents implements Listener {
 
     @EventHandler
     public void stopDragonDamageOrCrystalExplosion(final EntityExplodeEvent event) {
-        Entity e = event.getEntity();
-        final String w = e.getWorld().getName();
-        if (this.plugin.checkWorld(w)) {
-            if (e instanceof ComplexEntityPart) {
-                e = ((ComplexEntityPart) e).getParent();
+        Entity entity = event.getEntity();
+        String worldName = entity.getWorld().getName();
+        if (this.plugin.checkWorld(worldName)) {
+            worldName = worldName.toLowerCase();
+            if (entity instanceof ComplexEntityPart) {
+                entity = ((ComplexEntityPart) entity).getParent();
+            }
+            if (entity instanceof EnderDragon) {
+                final boolean blockGrief = !this.plugin.configManager.getBlockGrief(worldName);
+                final boolean denyCrystalExplosion = this.plugin.configManager.getDenyCrystalExplosion(worldName);
+
+                if (blockGrief || denyCrystalExplosion) {
+                    event.setCancelled(true);
+                }
             }
 
-            if (e instanceof EnderDragon && !this.plugin.configManager.getBlockGrief(w.toLowerCase())) {
-                event.setCancelled(true);
-            }
-
-            if (e instanceof EnderCrystal && this.plugin.configManager.getDenyCrystalExplosion(w.toLowerCase())) {
-                event.setCancelled(true);
-            }
         }
 
     }
 
     @EventHandler
     public void onDragonDamage(final EntityDamageByEntityEvent event) {
-        final Entity e = event.getDamager();
-        if (e instanceof EnderDragon) {
-            final String world = e.getWorld().getName();
+        final Entity entity = event.getDamager();
+        if (entity instanceof final EnderDragon dragon) {
+            final String world = entity.getWorld().getName();
             if (this.plugin.checkWorld(world)) {
-                final int dragonID = this.plugin.getDragonIDMeta((EnderDragon) e);
-                if (!this.plugin.checkDSLDragon((EnderDragon) e)) {
+                final int dragonID = this.plugin.getDragonIDMeta(dragon);
+                if (!this.plugin.checkDSLDragon(dragon)) {
                     return;
                 }
 
@@ -584,29 +612,29 @@ public class DragonEvents implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onDragonMoves(final EnderDragonChangePhaseEvent event) {
-        final EnderDragon ThisDrag = event.getEntity();
-        final Phase NextPhase = event.getNewPhase();
-        final World ThisWorld = ThisDrag.getWorld();
-        final String w = ThisWorld.getName().toLowerCase();
-        if (this.plugin.checkWorld(w)) {
+        final EnderDragon currentDragon = event.getEntity();
+        final Phase newPhase = event.getNewPhase();
+        final World world = currentDragon.getWorld();
+        final String worldName = world.getName().toLowerCase();
+        if (this.plugin.checkWorld(worldName)) {
             boolean setEDBforce = false;
-            setEDBforce = switch (DragonEvents.$SWITCH_TABLE$org$bukkit$entity$EnderDragon$Phase()[NextPhase.ordinal()]) {
+            setEDBforce = switch (DragonEvents.EnderDragonPhases()[newPhase.ordinal()]) {
             case 3, 4, 5, 6, 7, 8, 10 -> true;
             case 9 -> false;
             default -> false;
             case 11 -> false;
             };
 
-            final Collection<EnderDragon> DragonList = ThisWorld.getEntitiesByClass(EnderDragon.class);
-            if (NextPhase != Phase.DYING) {
-                if (this.plugin.configManager.getMultiPortal() && !this.plugin.checkServerStarted() && NextPhase != Phase.HOVER) {
+            final Collection<EnderDragon> dragons = world.getEntitiesByClass(EnderDragon.class);
+            if (newPhase != Phase.DYING) {
+                if (this.plugin.configManager.getMultiPortal() && !this.plugin.checkServerStarted() && newPhase != Phase.HOVER) {
                     event.setCancelled(true);
-                    ThisDrag.setPhase(Phase.HOVER);
+                    currentDragon.setPhase(Phase.HOVER);
                     return;
                 }
-            } else if (ThisDrag.isValid()) {
-                for (final EnderDragon Dragon : DragonList) {
-                    if (Dragon.getEntityId() != ThisDrag.getEntityId() && Dragon.isValid()) {
+            } else if (currentDragon.isValid()) {
+                for (final EnderDragon Dragon : dragons) {
+                    if (Dragon.getEntityId() != currentDragon.getEntityId() && Dragon.isValid()) {
                         final Phase DragPhase = Dragon.getPhase();
                         if (DragPhase != Phase.SEARCH_FOR_BREATH_ATTACK_TARGET && DragPhase != Phase.ROAR_BEFORE_ATTACK
                                 && DragPhase != Phase.BREATH_ATTACK) {
@@ -620,78 +648,67 @@ public class DragonEvents implements Listener {
                 }
             }
 
-            if (ThisDrag.getTicksLived() > 200) {
-                for (final EnderDragon Dragon : DragonList) {
-                    if (Dragon.getEntityId() != ThisDrag.getEntityId() && Dragon.isValid()) {
-                        final Phase DragPhase = Dragon.getPhase();
-                        if (ThisDrag.getLocation().distance(Dragon.getLocation()) < 128.0D) {
-                            if (NextPhase == Phase.FLY_TO_PORTAL
+            if (currentDragon.getTicksLived() > 200) {
+                for (final EnderDragon dragon : dragons) {
+                    if (dragon.getEntityId() != currentDragon.getEntityId() && dragon.isValid()) {
+                        final Phase DragPhase = dragon.getPhase();
+                        if (currentDragon.getLocation().distance(dragon.getLocation()) < 128.0D) {
+                            if (newPhase == Phase.FLY_TO_PORTAL
                                     && (DragPhase == Phase.LAND_ON_PORTAL || DragPhase == Phase.SEARCH_FOR_BREATH_ATTACK_TARGET
                                             || DragPhase == Phase.ROAR_BEFORE_ATTACK || DragPhase == Phase.BREATH_ATTACK)) {
                                 event.setCancelled(true);
-                                ThisDrag.setPhase(Phase.CIRCLING);
-                            } else if (NextPhase != Phase.LAND_ON_PORTAL
+                                currentDragon.setPhase(Phase.CIRCLING);
+                            } else if (newPhase != Phase.LAND_ON_PORTAL
                                     || DragPhase != Phase.LAND_ON_PORTAL && DragPhase != Phase.SEARCH_FOR_BREATH_ATTACK_TARGET
                                             && DragPhase != Phase.ROAR_BEFORE_ATTACK && DragPhase != Phase.BREATH_ATTACK) {
-                                if ((NextPhase == Phase.LAND_ON_PORTAL || NextPhase == Phase.SEARCH_FOR_BREATH_ATTACK_TARGET)
+                                if ((newPhase == Phase.LAND_ON_PORTAL || newPhase == Phase.SEARCH_FOR_BREATH_ATTACK_TARGET)
                                         && DragPhase == Phase.FLY_TO_PORTAL) {
-                                    Dragon.setPhase(Phase.CIRCLING);
+                                    dragon.setPhase(Phase.CIRCLING);
                                 }
                             } else {
                                 event.setCancelled(true);
-                                ThisDrag.setPhase(Phase.LEAVE_PORTAL);
+                                currentDragon.setPhase(Phase.LEAVE_PORTAL);
                             }
                         }
                     }
                 }
             }
 
-            if (this.plugin.configManager.getOldPortal(w.toLowerCase())) {
-                switch (DragonEvents.$SWITCH_TABLE$org$bukkit$entity$EnderDragon$Phase()[NextPhase.ordinal()]) {
-                case 1:
-                case 2:
-                case 5:
-                case 6:
-                case 7:
-                case 8:
-                case 9:
-                case 10:
-                case 11:
-                default:
-                    break;
-                case 3:
-                case 4:
+            if (this.plugin.configManager.getOldPortal(worldName.toLowerCase())) {
+                final int phase = DragonEvents.EnderDragonPhases()[newPhase.ordinal()];
+                final Set<Integer> gotoPortalPhases = Set.of(3, 4);
+                if (gotoPortalPhases.contains(phase)) {
                     event.setCancelled(true);
-                    ThisDrag.setPhase(Phase.CIRCLING);
+                    currentDragon.setPhase(Phase.CIRCLING);
                 }
             }
 
-            this.plugin.WorldGenEndTrophyPositionSet(ThisDrag, setEDBforce);
+            this.plugin.WorldGenEndTrophyPositionSet(currentDragon, setEDBforce);
         }
 
     }
 
     @EventHandler
     public void onDamageTheDragon(final EntityDamageByEntityEvent event) {
-        final Entity e = event.getEntity();
+        final Entity entity = event.getEntity();
         Entity damager = event.getDamager();
-        final double schaden = event.getFinalDamage();
-        if (e instanceof EnderDragon && this.plugin.checkDSLDragon((EnderDragon) e)) {
-            this.plugin.setBossBarAmount((EnderDragon) e);
+        final double damage = event.getFinalDamage();
+        if (entity instanceof final EnderDragon dragon && this.plugin.checkDSLDragon(dragon)) {
+            this.plugin.setBossBarAmount(dragon);
             if (damager instanceof final Projectile p) {
-                if (p.getShooter() instanceof Player) {
-                    damager = (Player) p.getShooter();
-                }
+                if (p.getShooter() instanceof final Player player)
+                    damager = player;
+
             }
 
-            if (damager instanceof Player) {
-                this.plugin.setDragonDamageMeta((EnderDragon) e, (Player) damager, schaden);
-                final String w = e.getWorld().getName().toLowerCase();
-                if (this.plugin.configManager.getHitEffect(w)) {
-                    final boolean on = !this.plugin.configManager.getGlowEffect(w);
-                    this.plugin.handleGlowTeams(e.getWorld(), this.plugin.getDragonIDMeta((EnderDragon) e), e.getUniqueId().toString());
-                    e.setGlowing(on);
-                    this.plugin.getServer().getScheduler().scheduleSyncDelayedTask(this.plugin, () -> e.setGlowing(!on), 10L);
+            if (damager instanceof final Player player) {
+                this.plugin.setDragonDamageMeta(dragon, player, damage);
+                final String worldName = dragon.getWorld().getName().toLowerCase();
+                if (this.plugin.configManager.getHitEffect(worldName)) {
+                    final boolean on = !this.plugin.configManager.getGlowEffect(worldName);
+                    this.plugin.handleGlowTeams(dragon.getWorld(), this.plugin.getDragonIDMeta(dragon), dragon.getUniqueId().toString());
+                    dragon.setGlowing(on);
+                    this.plugin.getServer().getScheduler().scheduleSyncDelayedTask(this.plugin, () -> dragon.setGlowing(!on), 10L);
                 }
             }
         }
@@ -700,78 +717,35 @@ public class DragonEvents implements Listener {
 
     @EventHandler
     public void onHealTheDragon(final EntityRegainHealthEvent event) {
-        final Entity e = event.getEntity();
-        if (e instanceof EnderDragon && this.plugin.checkDSLDragon((EnderDragon) e)) {
-            this.plugin.setBossBarAmount((EnderDragon) e);
+        final Entity entity = event.getEntity();
+        if (entity instanceof final EnderDragon dragon && this.plugin.checkDSLDragon(dragon)) {
+            this.plugin.setBossBarAmount(dragon);
         }
 
     }
 
-    // $FF: synthetic method
-    static int[] $SWITCH_TABLE$org$bukkit$entity$EnderDragon$Phase() {
-        final int[] var10000 = DragonEvents.$SWITCH_TABLE$org$bukkit$entity$EnderDragon$Phase;
-        if (DragonEvents.$SWITCH_TABLE$org$bukkit$entity$EnderDragon$Phase != null) {
-            return var10000;
+    static int[] EnderDragonPhases() {
+        final int[] Phases = DragonEvents.EnderDragonPhases;
+        if (DragonEvents.EnderDragonPhases != null) {
+            return Phases;
         } else {
-            final int[] var0 = new int[Phase.values().length];
+            final int[] allPhases = new int[Phase.values().length];
 
-            try {
-                var0[Phase.BREATH_ATTACK.ordinal()] = 6;
-            } catch (final NoSuchFieldError var11) {
-            }
+            allPhases[Phase.CIRCLING.ordinal()] = 1;
+            allPhases[Phase.STRAFING.ordinal()] = 2;
+            allPhases[Phase.FLY_TO_PORTAL.ordinal()] = 3;
+            allPhases[Phase.LAND_ON_PORTAL.ordinal()] = 4;
+            allPhases[Phase.LEAVE_PORTAL.ordinal()] = 5;
+            allPhases[Phase.BREATH_ATTACK.ordinal()] = 6;
+            allPhases[Phase.SEARCH_FOR_BREATH_ATTACK_TARGET.ordinal()] = 7;
+            allPhases[Phase.ROAR_BEFORE_ATTACK.ordinal()] = 8;
+            allPhases[Phase.CHARGE_PLAYER.ordinal()] = 9;
+            allPhases[Phase.DYING.ordinal()] = 10;
+            allPhases[Phase.HOVER.ordinal()] = 11;
+            allPhases[Phase.HOVER.ordinal()] = 11;
 
-            try {
-                var0[Phase.CHARGE_PLAYER.ordinal()] = 9;
-            } catch (final NoSuchFieldError var10) {
-            }
-
-            try {
-                var0[Phase.CIRCLING.ordinal()] = 1;
-            } catch (final NoSuchFieldError var9) {
-            }
-
-            try {
-                var0[Phase.DYING.ordinal()] = 10;
-            } catch (final NoSuchFieldError var8) {
-            }
-
-            try {
-                var0[Phase.FLY_TO_PORTAL.ordinal()] = 3;
-            } catch (final NoSuchFieldError var7) {
-            }
-
-            try {
-                var0[Phase.HOVER.ordinal()] = 11;
-            } catch (final NoSuchFieldError var6) {
-            }
-
-            try {
-                var0[Phase.LAND_ON_PORTAL.ordinal()] = 4;
-            } catch (final NoSuchFieldError var5) {
-            }
-
-            try {
-                var0[Phase.LEAVE_PORTAL.ordinal()] = 5;
-            } catch (final NoSuchFieldError var4) {
-            }
-
-            try {
-                var0[Phase.ROAR_BEFORE_ATTACK.ordinal()] = 8;
-            } catch (final NoSuchFieldError var3) {
-            }
-
-            try {
-                var0[Phase.SEARCH_FOR_BREATH_ATTACK_TARGET.ordinal()] = 7;
-            } catch (final NoSuchFieldError var2) {
-            }
-
-            try {
-                var0[Phase.STRAFING.ordinal()] = 2;
-            } catch (final NoSuchFieldError var1) {
-            }
-
-            DragonEvents.$SWITCH_TABLE$org$bukkit$entity$EnderDragon$Phase = var0;
-            return var0;
+            DragonEvents.EnderDragonPhases = allPhases;
+            return allPhases;
         }
     }
 }

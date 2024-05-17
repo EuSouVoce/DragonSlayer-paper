@@ -8,18 +8,17 @@ import org.bukkit.event.Listener;
 public class DragonLChatEvents implements Listener {
     DragonSlayer plugin;
 
-    public DragonLChatEvents(DragonSlayer instance) { this.plugin = instance; }
+    public DragonLChatEvents(final DragonSlayer instance) { this.plugin = instance; }
 
     @SuppressWarnings("deprecation")
     @EventHandler
-    public void lchatListener(imperio.games.eventos.shaded.legendchatapi.api.events.ChatMessageEvent event) {
-        String tagname = "dragonslayer";
-        CommandSender sender = event.getSender();
-        if (sender instanceof Player) {
-            Player p = (Player) sender;
-            if (this.plugin.configManager.getPrefixEnabled() && this.plugin.getSlayerUUIDString().equals(p.getUniqueId().toString())) {
-                String prefix = this.plugin.configManager.getPrefix();
-                if (!p.getDisplayName().contains(prefix.trim())) {
+    public void lchatListener(final imperio.games.eventos.shaded.legendchatapi.api.events.ChatMessageEvent event) {
+        final String tagname = "dragonslayer";
+        final CommandSender sender = event.getSender();
+        if (sender instanceof final Player player) {
+            if (this.plugin.configManager.getPrefixEnabled() && this.plugin.getSlayerUUIDString().equals(player.getUniqueId().toString())) {
+                final String prefix = this.plugin.configManager.getPrefix();
+                if (!player.getDisplayName().contains(prefix.trim())) {
                     if (event.getTags().contains(tagname)) {
                         event.setTagValue(tagname, prefix);
                     } else {

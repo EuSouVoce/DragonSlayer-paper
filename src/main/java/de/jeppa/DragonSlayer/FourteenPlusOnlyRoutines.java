@@ -8,5 +8,5 @@ public class FourteenPlusOnlyRoutines {
 
     public FourteenPlusOnlyRoutines(DragonSlayer instance) { this.plugin = instance; }
 
-    boolean getBedTag(Material mat) { return Tag.BEDS.isTagged(mat); }
+    boolean getBedTag(Material material) { return Tag.BEDS.isTagged(material); }
 }

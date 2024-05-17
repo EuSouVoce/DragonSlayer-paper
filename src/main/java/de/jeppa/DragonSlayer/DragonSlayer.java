@@ -30,6 +30,7 @@ import org.bukkit.World.Environment;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarFlag;
@@ -63,6 +64,7 @@ import org.bukkit.scoreboard.Team;
 import org.bukkit.scoreboard.Team.Option;
 import org.bukkit.scoreboard.Team.OptionStatus;
 import org.bukkit.util.EulerAngle;
+import org.jetbrains.annotations.NotNull;
 
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
@@ -74,10 +76,9 @@ import me.clip.placeholderapi.PlaceholderAPI;
 import net.milkbowl.vault.economy.Economy;
 
 // @SuppressWarnings("deprecation")
-@SuppressWarnings({ "unused", "deprecation" })
+@SuppressWarnings({ "deprecation" })
 public class DragonSlayer extends JavaPlugin {
     private static DragonSlayer instance = null;
-    static final String Copyright = "The plugin were decompiled and continued the project from the original author, i'm doing the same.";
     final Logger logger = this.getLogger();
     ConfigManager configManager = new ConfigManager(this);
     TimerManager timerManager = new TimerManager(this);
@@ -105,11 +106,9 @@ public class DragonSlayer extends JavaPlugin {
     static ArrayList<WorldRefreshOrReset> ResetimerList = new ArrayList<WorldRefreshOrReset>();
     private static ArrayList<Location> Endgateways = new ArrayList<Location>();
     final ArrayList<World> ProtectResetWorlds = new ArrayList<World>();
-    private HashMap<String, Integer> healTickCounterList = new HashMap<String, Integer>();
+    private final HashMap<String, Integer> healTickCounterList = new HashMap<String, Integer>();
     private static Method db_a = null;
 
-    private static Method db_e = null;
-    private static Method db_d = null;
     public static Boolean debugOn = false;
     private static Method endgatewayMethod = null;
     private static Field OrigGateways = null;
@@ -123,31 +122,27 @@ public class DragonSlayer extends JavaPlugin {
     private static Class<?> CraftWorldClass = null;
     private static Class<?> CraftEnderDragonClass = null;
     private static Field CrystalAmount_f = null;
-    private static Object dId = null;
-    private static Constructor<?> newBlockPosition = null;
+    private static Object dragonId = null;
+    private static Constructor<?> newBlockPos = null;
     private static Constructor<?> newPathPoint = null;
     private static Method pp_geta_func = null;
-    private static Field pp_geta_x = null;
-    private static Field pp_getb_y = null;
-    private static Field pp_getc_z = null;
-    private static Method bbp_getX = null;
-    private static Method bbp_getY = null;
-    private static Method bbp_getZ = null;
-    private static String mapVers = null;
+    private static Method Vec3_getX = null;
+    private static Method Vec3_getY = null;
+    private static Method Vec3_getZ = null;
     static final double Pi = Math.PI;
     static final double ZwPi = 0.15707963267948966D;
-    private Method phase_control_manager_method = null;
+    private Method phaseControlManager_method = null;
     private Method getPathPointFromPathEnt_method = null;
     private Field pathEntList = null;
-    private Field respawnPhase_f = null;
     static Method getTileEntity = null;
     static Method saveNBT = null;
-    static int RunCounter = 0;
-    static int RunCounter2 = 0;
-    private static String ScoreBoardName_1 = "" + ChatColor.BLACK + ChatColor.WHITE;
-    private static String ScoreBoardName_2 = "" + ChatColor.BLUE + ChatColor.WHITE;
+    static int repeatingCounter = 0;
+    static int tabListTime = 0;
+    private static String ScoreBoardName_TimerDisplay = "" + ChatColor.BLACK + ChatColor.WHITE;
+    private static String ScoreBoardName_ResetTimer = "" + ChatColor.BLUE + ChatColor.WHITE;
     private static ArrayList<Team> TeamList = new ArrayList<Team>();
 
+    @Override
     public void onEnable() {
         DragonSlayer.instance = this;
         this.configManager.loadConfiguration();
@@ -165,29 +160,29 @@ public class DragonSlayer extends JavaPlugin {
 
         try {
             Class.forName("org.spigotmc.SpigotConfig");
-            spigot = true;
+            DragonSlayer.spigot = true;
         } catch (ClassNotFoundException | NoClassDefFoundError var8) {
             this.logger.severe("org.spigotmc.SpigotConfig not found, disabling");
-            getServer().getPluginManager().disablePlugin(this);
+            this.getServer().getPluginManager().disablePlugin(this);
         }
 
         try {
-            newRoutines14 = new FourteenPlusOnlyRoutines(this);
-        } catch (Exception var7) {
+            DragonSlayer.newRoutines14 = new FourteenPlusOnlyRoutines(this);
+        } catch (final Exception var7) {
         }
 
         this.getServer().getPluginManager().registerEvents(this.playerListener, this);
 
-        if (LegendChatenabled) {
+        if (DragonSlayer.LegendChatenabled) {
             this.getServer().getPluginManager().registerEvents(this.dragonLChatListener, this);
         }
 
-        if (PAPIenabled) {
-            String ver = this.getServer().getPluginManager().getPlugin("PlaceholderAPI").getPluginMeta().getVersion();
+        if (DragonSlayer.PAPIenabled) {
+            final String ver = this.getServer().getPluginManager().getPlugin("PlaceholderAPI").getPluginMeta().getVersion();
             String vers2 = "";
 
-            String[] var6;
-            for (String split : var6 = ver.split("\\.")) {
+            final String[] var6 = ver.split("\\.");
+            for (final String split : var6) {
                 vers2 = vers2 + (split.length() == 2 ? split : "0" + split);
             }
 
@@ -195,7 +190,7 @@ public class DragonSlayer extends JavaPlugin {
                 vers2 = vers2.substring(0, vers2.indexOf("-"));
             }
 
-            int version2 = Integer.parseInt(vers2);
+            final int version2 = Integer.parseInt(vers2);
             if (version2 <= 21006) {
                 (new DragonPlaceholderAPIold(this)).register();
             } else {
@@ -203,7 +198,7 @@ public class DragonSlayer extends JavaPlugin {
             }
         }
 
-        if (ProtocolLibEnabled) {
+        if (DragonSlayer.ProtocolLibEnabled) {
             if (this.configManager.getVerbosity()) {
                 this.logger.info("ProtocolLib found...");
             }
@@ -225,35 +220,35 @@ public class DragonSlayer extends JavaPlugin {
             this.logger.info("Vault dependency found, rewards will be enabled!");
         }
 
-        for (String DragonWorld : this.configManager.getMaplist()) {
-            World MyWorld = this.getDragonWorldFromString(DragonWorld);
+        for (final String DragonWorld : this.configManager.getMaplist()) {
+            final World MyWorld = this.getDragonWorldFromString(DragonWorld);
             this.activateChunksAroundPosition(new Location(MyWorld, 0.0D, 75.0D, 0.0D), MyWorld, 7, false);
         }
 
-        if (UCenabled) {
+        if (DragonSlayer.UCenabled) {
             this.logger.info("UChat found, tag will be used!");
         }
 
-        if (LegendChatenabled) {
+        if (DragonSlayer.LegendChatenabled) {
             this.logger.info("LegendChat found, tag will be used!");
         }
 
-        if (PAPIenabled) {
+        if (DragonSlayer.PAPIenabled) {
             this.logger.info("PlaceholderAPI found, will be used!");
         }
 
-        if (this.configManager.getVerbosity() && EssentialsEnabled) {
+        if (this.configManager.getVerbosity() && DragonSlayer.EssentialsEnabled) {
             this.logger.info("Essentials found, will be used!");
         }
 
-        if (this.configManager.getVerbosity() && EssChEnabled) {
+        if (this.configManager.getVerbosity() && DragonSlayer.EssChEnabled) {
             this.logger.info("EssentialsChat found, will be used!");
         }
 
-        if (TabListPlugin) {
-            Plugin tl = this.getServer().getPluginManager().getPlugin("TabList");
+        if (DragonSlayer.TabListPlugin) {
+            final Plugin tl = this.getServer().getPluginManager().getPlugin("TabList");
             if (tl.getPluginMeta().getMainClass().contains("montlikadani")) {
-                String[] vers1 = tl.getPluginMeta().getVersion().split("\\.");
+                final String[] vers1 = tl.getPluginMeta().getVersion().split("\\.");
                 if (vers1.length >= 3) {
                     if (Integer.valueOf(String.format("%03d%03d%03d", Integer.valueOf(vers1[0]), Integer.valueOf(vers1[1]),
                             Integer.valueOf(vers1[2]))) <= 5007004) {
@@ -261,15 +256,15 @@ public class DragonSlayer extends JavaPlugin {
                             this.logger.info("Plugin 'TabList' <= 5.7.4 found, using fallback mode for Timer-Scoreboard !");
                         }
                     } else {
-                        TabListPlugin = false;
+                        DragonSlayer.TabListPlugin = false;
                     }
                 }
             } else {
-                TabListPlugin = false;
+                DragonSlayer.TabListPlugin = false;
             }
         }
 
-        serverStarted = !this.configManager.getMultiPortal();
+        DragonSlayer.serverStarted = !this.configManager.getMultiPortal();
         this.countEndGatewaysAndContinue();
         this.setTestPortal();
         this.getServer().getScheduler().scheduleSyncDelayedTask(this, () -> {
@@ -279,36 +274,37 @@ public class DragonSlayer extends JavaPlugin {
             this.leaderManager.getLeaderlist();
             this.leaderManager.sortLeaderList();
             this.leaderManager.saveLeaderlist();
-            if (ProtocolLibEnabled) {
+            if (DragonSlayer.ProtocolLibEnabled) {
                 this.getServer().getScheduler().runTaskLaterAsynchronously(this, () -> {
                     if (this.getStatueVersion() >= 2) {
-                        protLibHandler.getNewTextureArray((Player) null, true, true);
+                        DragonSlayer.protLibHandler.getNewTextureArray((Player) null, true, true);
                     }
 
                 }, 0L);
             }
 
-            this.getServer().getScheduler().runTaskLater(this, () -> this.resetArmorStand(), 30L);
+            this.getServer().getScheduler().runTaskLater(this, (@NotNull Runnable) this::resetArmorStand, 30L);
             this.StartRepeatingTimer();
             this.StartSecondRepeatingTimer();
-            for (String DragonWorld : this.configManager.getMaplist()) {
+            for (final String DragonWorld : this.configManager.getMaplist()) {
                 this.getDragonCount(DragonWorld);
             }
 
         }, 20L);
-        dId = new NamespacedKey(this, "DragonID");
+        DragonSlayer.dragonId = new NamespacedKey(this, "DragonID");
 
     }
 
+    @Override
     public void onDisable() {
         this.timerManager.getTimerlist();
-        for (String DragonWorld : this.configManager.getMaplist()) {
-            World world = this.getDragonWorldFromString(DragonWorld);
+        for (final String DragonWorld : this.configManager.getMaplist()) {
+            final World world = this.getDragonWorldFromString(DragonWorld);
 
             try {
-                boolean pendingRefresh = this.isRefreshRunning(world);
-                long resetTimerNotRunning = this.getResetTime(DragonWorld);
-                long timerValue = 60L;
+                final boolean pendingRefresh = this.isRefreshRunning(world);
+                final long resetTimerNotRunning = this.getResetTime(DragonWorld);
+                final long timerValue = 60L;
                 if (pendingRefresh && resetTimerNotRunning == -1L && this.configManager.getRefreshWorld(DragonWorld)) {
                     this.createWorldResetTimer(DragonWorld, timerValue, timerValue / 3L);
                     if (this.configManager.getVerbosity()) {
@@ -322,7 +318,7 @@ public class DragonSlayer extends JavaPlugin {
                         }
                     }
                 }
-            } catch (Exception var9) {
+            } catch (final Exception var9) {
             }
         }
 
@@ -333,23 +329,23 @@ public class DragonSlayer extends JavaPlugin {
     }
 
     private void setupDependPlugins() {
-        UCenabled = this.checkPlugin("UltimateChat");
-        LegendChatenabled = this.checkPlugin("Legendchat");
-        PAPIenabled = this.checkPlugin("PlaceholderAPI");
-        EssentialsEnabled = this.checkPlugin("Essentials");
-        EssChEnabled = this.checkPlugin("EssentialsChat");
-        SkinsRestorerEnabled = this.checkPlugin("SkinsRestorer");
-        TabListPlugin = this.checkPlugin("TabList");
+        DragonSlayer.UCenabled = this.checkPlugin("UltimateChat");
+        DragonSlayer.LegendChatenabled = this.checkPlugin("Legendchat");
+        DragonSlayer.PAPIenabled = this.checkPlugin("PlaceholderAPI");
+        DragonSlayer.EssentialsEnabled = this.checkPlugin("Essentials");
+        DragonSlayer.EssChEnabled = this.checkPlugin("EssentialsChat");
+        DragonSlayer.SkinsRestorerEnabled = this.checkPlugin("SkinsRestorer");
+        DragonSlayer.TabListPlugin = this.checkPlugin("TabList");
     }
 
-    private boolean checkPlugin(String pluginName) { return this.getServer().getPluginManager().getPlugin(pluginName) != null; }
+    private boolean checkPlugin(final String pluginName) { return this.getServer().getPluginManager().getPlugin(pluginName) != null; }
 
     private void Protocollib() {
         if (this.getServer().getPluginManager().getPlugin("ProtocolLib") != null) {
             try {
-                protLibHandler = new ProtLibHandler(this);
-                ProtocolLibEnabled = true;
-            } catch (Exception var2) {
+                DragonSlayer.protLibHandler = new ProtLibHandler(this);
+                DragonSlayer.ProtocolLibEnabled = true;
+            } catch (final Exception var2) {
             }
         }
 
@@ -359,23 +355,23 @@ public class DragonSlayer extends JavaPlugin {
         if (this.getServer().getPluginManager().getPlugin("Vault") == null) {
             return false;
         } else {
-            RegisteredServiceProvider<Economy> rsp = this.getServer().getServicesManager().getRegistration(Economy.class);
+            final RegisteredServiceProvider<Economy> rsp = this.getServer().getServicesManager().getRegistration(Economy.class);
             if (rsp == null) {
                 return false;
             } else {
-                econ = (Economy) rsp.getProvider();
+                DragonSlayer.econ = (Economy) rsp.getProvider();
                 return true;
             }
         }
     }
 
-    boolean checkServerStarted() { return serverStarted; }
+    boolean checkServerStarted() { return DragonSlayer.serverStarted; }
 
-    private int countRespawnTimers(String ThisWorld) {
+    private int countRespawnTimers(final String worldName) {
         int Count = 0;
 
-        for (DragonRespawn Resp : this.timerManager.RespawnList) {
-            if (Resp.Mapname.toLowerCase().equals(ThisWorld)) {
+        for (final DragonRespawn Resp : this.timerManager.RespawnList) {
+            if (Resp.worldName.toLowerCase().equals(worldName)) {
                 ++Count;
             }
         }
@@ -383,19 +379,19 @@ public class DragonSlayer extends JavaPlugin {
         return Count;
     }
 
-    public int missingDragons(String ThisWorld) {
-        int MaxDragons = this.configManager.getMaxdragons(ThisWorld);
-        int Count = this.getDragonCount(ThisWorld);
-        int runningTimers = this.countRespawnTimers(ThisWorld);
+    public int missingDragons(final String worldName) {
+        final int MaxDragons = this.configManager.getMaxdragons(worldName);
+        final int Count = this.getDragonCount(worldName);
+        final int runningTimers = this.countRespawnTimers(worldName);
         return runningTimers + Count < MaxDragons ? MaxDragons - (runningTimers + Count) : 0;
     }
 
-    private long getNextRespawn(String ThisWorld) {
+    private long getNextRespawn(final String worldName) {
         long Resttime = -1L;
 
-        for (DragonRespawn Resp : this.timerManager.RespawnList) {
-            if (Resp.Mapname.equals(ThisWorld)) {
-                Long check = this.remainingTimerDuration(Resp);
+        for (final DragonRespawn Resp : this.timerManager.RespawnList) {
+            if (Resp.worldName.equals(worldName)) {
+                final Long check = this.remainingTimerDuration(Resp);
                 if (check != null && (check < Resttime || Resttime == -1L)) {
                     Resttime = check;
                 }
@@ -405,18 +401,18 @@ public class DragonSlayer extends JavaPlugin {
         return Resttime;
     }
 
-    Long remainingTimerDuration(DragonRespawn Resp) {
-        long Runtime = System.currentTimeMillis() / 50L - Resp.StartTime;
-        long Resttime = Resp.OrigRuntime - Runtime;
+    Long remainingTimerDuration(final DragonRespawn dragonRespawn) {
+        final long Runtime = System.currentTimeMillis() / 50L - dragonRespawn.StartTime;
+        final long Resttime = dragonRespawn.OrigRuntime - Runtime;
         return Resttime > 0L ? Resttime : null;
     }
 
-    private long getResetTime(String ThisWorld) {
+    private long getResetTime(final String worldName) {
         long Resttime = -1L;
 
-        for (WorldRefreshOrReset Res : ResetimerList) {
-            if (Res.Mapname.equals(ThisWorld)) {
-                Long check = this.remainingResetDuration(Res);
+        for (final WorldRefreshOrReset Res : DragonSlayer.ResetimerList) {
+            if (Res.Mapname.equals(worldName)) {
+                final Long check = this.remainingResetDuration(Res);
                 if (check != null && (check < Resttime || Resttime == -1L)) {
                     Resttime = check;
                 }
@@ -426,17 +422,17 @@ public class DragonSlayer extends JavaPlugin {
         return Resttime;
     }
 
-    Long remainingResetDuration(WorldRefreshOrReset Res) {
-        long Runtime = System.currentTimeMillis() / 50L - Res.StartTime;
-        long Resttime = Res.OrigRuntime - Runtime;
+    Long remainingResetDuration(final WorldRefreshOrReset worldRefreshOrReset) {
+        final long Runtime = System.currentTimeMillis() / 50L - worldRefreshOrReset.StartTime;
+        final long Resttime = worldRefreshOrReset.OrigRuntime - Runtime;
         return Resttime > 0L ? Resttime : null;
     }
 
-    void stopResetTimer(String ThisWorld) {
-        List<WorldRefreshOrReset> killList = new ArrayList<WorldRefreshOrReset>();
+    void stopResetTimer(final String worldName) {
+        final List<WorldRefreshOrReset> killList = new ArrayList<WorldRefreshOrReset>();
 
-        for (WorldRefreshOrReset Res_ : ResetimerList) {
-            if (Res_.Mapname.toLowerCase().equals(ThisWorld)) {
+        for (final WorldRefreshOrReset Res_ : DragonSlayer.ResetimerList) {
+            if (Res_.Mapname.toLowerCase().equals(worldName)) {
                 this.getServer().getScheduler().cancelTask(Res_.taskId);
                 killList.add(Res_);
             }
@@ -444,15 +440,15 @@ public class DragonSlayer extends JavaPlugin {
 
         for (WorldRefreshOrReset Res_ : killList) {
             this.getServer().getScheduler().cancelTask(Res_.taskId);
-            ResetimerList.remove(Res_);
+            DragonSlayer.ResetimerList.remove(Res_);
             Res_ = null;
         }
 
         killList.clear();
     }
 
-    public void StartWorldResetTimer(String Mapname, long Runtime, long Warntime) {
-        WorldRefreshOrReset Res = this.createWorldResetTimer(Mapname, Runtime, Warntime);
+    public void StartWorldResetTimer(final String worldName, long Runtime, final long Warntime) {
+        final WorldRefreshOrReset Res = this.createWorldResetTimer(worldName, Runtime, Warntime);
         if (Runtime < Warntime) {
             Res.Warntime = Runtime;
             Runtime = 0L;
@@ -463,43 +459,43 @@ public class DragonSlayer extends JavaPlugin {
         Res.taskId = this.getServer().getScheduler().runTaskLater(this, Res, Runtime).getTaskId();
     }
 
-    private WorldRefreshOrReset createWorldResetTimer(String Mapname, long Runtime, long Warntime) {
-        WorldRefreshOrReset Res = new WorldRefreshOrReset(this);
-        Res.Mapname = Mapname;
+    private WorldRefreshOrReset createWorldResetTimer(final String worldName, final long Runtime, final long Warntime) {
+        final WorldRefreshOrReset Res = new WorldRefreshOrReset(this);
+        Res.Mapname = worldName;
         Res.OrigRuntime = Runtime;
         Res.Warntime = Warntime;
         return Res;
     }
 
-    public HashMap<Double, Player> sortDamagersRanks(HashMap<Double, Player> orderList) {
-        List<Double> percentList = new ArrayList<Double>(orderList.keySet());
+    public HashMap<Double, Player> sortDamagersRanks(final HashMap<Double, Player> orderList) {
+        final List<Double> percentList = new ArrayList<Double>(orderList.keySet());
         Collections.sort(percentList);
         Collections.reverse(percentList);
-        HashMap<Double, Player> newOrderList = new HashMap<Double, Player>();
+        final HashMap<Double, Player> newOrderList = new HashMap<Double, Player>();
         double r = 1.0D;
 
-        for (Double val : percentList) {
+        for (final Double val : percentList) {
             newOrderList.put(r++, (Player) orderList.get(val));
         }
 
         return newOrderList;
     }
 
-    Integer getPlayerCount(String Mapname) {
-        World MyWorld = this.getDragonWorldFromString(Mapname);
+    Integer getPlayerCount(final String worldName) {
+        final World MyWorld = this.getDragonWorldFromString(worldName);
         return MyWorld == null ? 0 : MyWorld.getPlayers().size();
     }
 
-    Integer getDragonCount(String Mapname) {
-        World MyWorld = this.getDragonWorldFromString(Mapname);
+    Integer getDragonCount(final String worldName) {
+        final World MyWorld = this.getDragonWorldFromString(worldName);
         int Counter = 0;
         if (MyWorld == null) {
             return 0;
         } else {
-            Collection<EnderDragon> dragons = this.getDragonList(MyWorld, Mapname);
+            final Collection<EnderDragon> dragons = this.getDragonList(MyWorld, worldName);
             Counter = dragons.size();
 
-            for (EnderDragon dr : dragons) {
+            for (final EnderDragon dr : dragons) {
                 if (!dr.isValid() || dr.isDead() || dr.getPhase() == Phase.DYING || !this.checkDSLDragon(dr)) {
                     --Counter;
                 }
@@ -509,63 +505,63 @@ public class DragonSlayer extends JavaPlugin {
         }
     }
 
-    public Collection<EnderDragon> getDragonList(World myWorld, String mapname) {
-        if (this.checkWorld(mapname)) {
-            Location DragSpawnPos = findPosForPortal((double) this.configManager.getPortalXdef(mapname),
-                    (double) this.configManager.getPortalZdef(mapname), myWorld, Material.BEDROCK);
-            this.activateChunksAroundPosition(DragSpawnPos, myWorld, 12, false);
+    public Collection<EnderDragon> getDragonList(final World world, final String worldName) {
+        if (this.checkWorld(worldName)) {
+            final Location DragSpawnPos = DragonSlayer.findPosForPortal((double) this.configManager.getPortalXdef(worldName),
+                    (double) this.configManager.getPortalZdef(worldName), world, Material.BEDROCK);
+            this.activateChunksAroundPosition(DragSpawnPos, world, 12, false);
 
-            for (int i = 1; i <= this.configManager.getMaxdragons(mapname); ++i) {
-                Location PortLoc = findPosForPortal((double) this.configManager.getPortalX(mapname, i, true, true),
-                        (double) this.configManager.getPortalZ(mapname, i, true, true), myWorld, Material.BEDROCK);
+            for (int i = 1; i <= this.configManager.getMaxdragons(worldName); ++i) {
+                final Location PortLoc = DragonSlayer.findPosForPortal((double) this.configManager.getPortalX(worldName, i, true, true),
+                        (double) this.configManager.getPortalZ(worldName, i, true, true), world, Material.BEDROCK);
                 if (!DragSpawnPos.equals(PortLoc)) {
-                    this.activateChunksAroundPosition(PortLoc, myWorld, 6, false);
+                    this.activateChunksAroundPosition(PortLoc, world, 6, false);
                 }
             }
         }
 
-        return myWorld.getEntitiesByClass(EnderDragon.class);
+        return world.getEntitiesByClass(EnderDragon.class);
     }
 
-    void activateChunksAroundPosition(Location StartPos, World World, int Radius, boolean forceTicket) {
-        if (World != null) {
-            int baseX = (int) (StartPos.getX() / 16.0D);
-            int baseZ = (int) (StartPos.getZ() / 16.0D);
+    void activateChunksAroundPosition(final Location startLocation, final World world, final int Radius, final boolean forceTicket) {
+        if (world != null) {
+            final int baseX = (int) (startLocation.getX() / 16.0D);
+            final int baseZ = (int) (startLocation.getZ() / 16.0D);
 
             for (int x = -1 * Radius; x <= Radius; ++x) {
-                int ChunkX = baseX + x;
+                final int ChunkX = baseX + x;
 
                 for (int z = -1 * Radius; z <= Radius; ++z) {
-                    int ChunkZ = baseZ + z;
-                    if ((this.configManager.keepChunksLoaded() || forceTicket) && (World.isChunkGenerated(ChunkX, ChunkZ))) {
+                    final int ChunkZ = baseZ + z;
+                    if ((this.configManager.keepChunksLoaded() || forceTicket) && (world.isChunkGenerated(ChunkX, ChunkZ))) {
                         try {
-                            World.addPluginChunkTicket(ChunkX, ChunkZ, this);
-                        } catch (NoSuchMethodError var17) {
+                            world.addPluginChunkTicket(ChunkX, ChunkZ, this);
+                        } catch (final NoSuchMethodError var17) {
                             try {
-                                World.setChunkForceLoaded(ChunkX, ChunkZ, true);
-                            } catch (NoSuchMethodError var16) {
+                                world.setChunkForceLoaded(ChunkX, ChunkZ, true);
+                            } catch (final NoSuchMethodError var16) {
                             }
                         }
                     }
 
-                    Chunk testChunk = World.getChunkAt(ChunkX, ChunkZ);
-                    if (!World.isChunkLoaded(ChunkX, ChunkZ)) {
+                    final Chunk testChunk = world.getChunkAt(ChunkX, ChunkZ);
+                    if (!world.isChunkLoaded(ChunkX, ChunkZ)) {
                         boolean load;
                         try {
-                            load = World.loadChunk(ChunkX, ChunkZ, true);
-                        } catch (RuntimeException var15) {
+                            load = world.loadChunk(ChunkX, ChunkZ, true);
+                        } catch (final RuntimeException var15) {
                             load = false;
                         }
 
                         if (!load && this.configManager.getVerbosity()) {
                             this.logger.warning("Failed to load and activate Chunk at X: " + ChunkX * 16 + " Z: " + ChunkZ * 16 + " in "
-                                    + World.getName());
+                                    + world.getName());
                         }
                     }
 
                     try {
                         testChunk.getEntities();
-                    } catch (Exception var14) {
+                    } catch (final Exception var14) {
                     }
                 }
             }
@@ -573,10 +569,10 @@ public class DragonSlayer extends JavaPlugin {
         }
     }
 
-    public void RemoveDragons(World ThisWorld, boolean deadOnly, boolean forceAll) {
-        String Mapname = ThisWorld.getName().toLowerCase();
+    public void RemoveDragons(final World worldName, final boolean deadOnly, final boolean forceAll) {
+        final String Mapname = worldName.getName().toLowerCase();
 
-        for (EnderDragon Dragon : this.getDragonList(ThisWorld, Mapname)) {
+        for (final EnderDragon Dragon : this.getDragonList(worldName, Mapname)) {
             if (this.checkDSLDragon(Dragon) || forceAll) {
                 if (deadOnly) {
                     if (!Dragon.isValid()) {
@@ -590,12 +586,12 @@ public class DragonSlayer extends JavaPlugin {
 
     }
 
-    boolean SpawnForceDragon(String w) {
-        if (this.checkWorld(w)) {
-            int ExistentDragons = this.getDragonCount(w);
-            int maxDragons = this.configManager.getMaxdragons(w);
+    boolean SpawnForceDragon(final String worldName) {
+        if (this.checkWorld(worldName)) {
+            final int ExistentDragons = this.getDragonCount(worldName);
+            final int maxDragons = this.configManager.getMaxdragons(worldName);
             if (ExistentDragons < maxDragons) {
-                this.SpawnXDragons(maxDragons - ExistentDragons, w);
+                this.SpawnXDragons(maxDragons - ExistentDragons, worldName);
                 return true;
             }
         }
@@ -604,9 +600,9 @@ public class DragonSlayer extends JavaPlugin {
     }
 
     void SpawnForceAllDragons() {
-        for (String DragonWorld : this.configManager.getMaplist()) {
-            int ExistentDragons = this.getDragonCount(DragonWorld);
-            int MaxDragons = this.configManager.getMaxdragons(DragonWorld);
+        for (final String DragonWorld : this.configManager.getMaplist()) {
+            final int ExistentDragons = this.getDragonCount(DragonWorld);
+            final int MaxDragons = this.configManager.getMaxdragons(DragonWorld);
             if (ExistentDragons < MaxDragons) {
                 this.SpawnXDragons(MaxDragons - ExistentDragons, DragonWorld);
             }
@@ -614,10 +610,10 @@ public class DragonSlayer extends JavaPlugin {
 
     }
 
-    void SpawnXDragons(int x, String World) {
-        for (int i = 0; i < x; ++i) {
-            DragonRespawn Resp = new DragonRespawn(this);
-            Resp.Mapname = World;
+    void SpawnXDragons(final int amount, final String worldName) {
+        for (int i = 0; i < amount; ++i) {
+            final DragonRespawn Resp = new DragonRespawn(this);
+            Resp.worldName = worldName;
             this.getServer().getScheduler().runTaskLater(this, Resp, (long) (60 + i * 40));
         }
 
@@ -658,7 +654,7 @@ public class DragonSlayer extends JavaPlugin {
         return uuid;
     }
 
-    World getDragonWorldFromString(String Mapname) { return Bukkit.getServer().getWorld(Mapname); }
+    World getDragonWorldFromString(final String worldName) { return Bukkit.getServer().getWorld(worldName); }
 
     public void setSlayer(Player p) {
         this.resetTabListName();
@@ -673,7 +669,7 @@ public class DragonSlayer extends JavaPlugin {
         this.leaderManager.saveLeaderlist();
         this.leaderManager.sortLeaderList();
         if (this.configManager.getSlayerByRank()) {
-            String topKiller = this.leaderManager.getUUIDforRank(1);
+            final String topKiller = this.leaderManager.getUUIDforRank(1);
             if (topKiller != null) {
                 uuid = topKiller;
                 p = Bukkit.getPlayer(UUID.fromString(topKiller.trim()));
@@ -686,11 +682,11 @@ public class DragonSlayer extends JavaPlugin {
             this.setTabListName(p);
         }
 
-        if (ProtocolLibEnabled) {
-            Player pl = p;
+        if (DragonSlayer.ProtocolLibEnabled) {
+            final Player pl = p;
             this.getServer().getScheduler().runTaskLaterAsynchronously(this, () -> {
                 if (this.getStatueVersion() >= 2) {
-                    protLibHandler.getNewTextureArray(pl, false, true);
+                    DragonSlayer.protLibHandler.getNewTextureArray(pl, false, true);
                 }
 
             }, 0L);
@@ -700,16 +696,16 @@ public class DragonSlayer extends JavaPlugin {
 
     private void resetTabListName() {
         if (this.configManager.getTabListEnable()) {
-            OfflinePlayer oldSlayer = this.getOfflineSlayer();
+            final OfflinePlayer oldSlayer = this.getOfflineSlayer();
             if (oldSlayer != null && oldSlayer.isOnline()) {
-                Player oldSlayer_ = (Player) oldSlayer;
+                final Player oldSlayer_ = (Player) oldSlayer;
                 oldSlayer_.setPlayerListName(oldSlayer_.getDisplayName());
             }
         }
 
     }
 
-    void setTabListName(Player p) {
+    void setTabListName(final Player p) {
         if (this.configManager.getTabListEnable()) {
             Bukkit.getScheduler().scheduleSyncDelayedTask(this, () -> {
                 if (p.getUniqueId().toString().equals(this.getSlayerUUIDString())) {
@@ -722,7 +718,7 @@ public class DragonSlayer extends JavaPlugin {
 
     }
 
-    String replaceValues(String s, String world, Integer id) {
+    String replaceValues(String s, final String worldName, final Integer id) {
         s = s.replace('&', '§');
         if (this.configManager.getSlayerPAPINick() != null) {
             s = s.replace("$slayername", this.configManager.getSlayerPAPINick());
@@ -732,12 +728,12 @@ public class DragonSlayer extends JavaPlugin {
             s = s.replace("$slayer", this.getSlayer());
         }
 
-        if (world != null) {
-            String baseworld = world.replace("_the_end", "");
-            int dragonID = id != null ? id : 0;
-            s = s.replace("$world", world).replace("$baseworld", baseworld)
-                    .replace("$dragon", this.configManager.getDragonDefaultName(world.toLowerCase(), dragonID) + "§r")
-                    .replace("$reward", String.valueOf(this.configManager.getReward_double(world.toLowerCase(), dragonID)));
+        if (worldName != null) {
+            final String baseworld = worldName.replace("_the_end", "");
+            final int dragonID = id != null ? id : 0;
+            s = s.replace("$world", worldName).replace("$baseworld", baseworld)
+                    .replace("$dragon", this.configManager.getDragonDefaultName(worldName.toLowerCase(), dragonID) + "§r")
+                    .replace("$reward", String.valueOf(this.configManager.getReward_double(worldName.toLowerCase(), dragonID)));
         } else {
             s = s.replace("$world", "-No World-").replace("$dragon", this.getConfig().getString("dragon._default.name") + "§r")
                     .replace("$reward", this.getConfig().getString("dragon._default.reward"));
@@ -746,11 +742,11 @@ public class DragonSlayer extends JavaPlugin {
         return s;
     }
 
-    String replaceValues(String s, String world) { return this.replaceValues(s, world, (Integer) null); }
+    String replaceValues(final String s, final String worldName) { return this.replaceValues(s, worldName, (Integer) null); }
 
-    public boolean checkWorld(String world) { return this.configManager.getMaplist().contains(world.toLowerCase()); }
+    public boolean checkWorld(final String worldName) { return this.configManager.getMaplist().contains(worldName.toLowerCase()); }
 
-    boolean checkDSLDragon(EnderDragon dragon) {
+    boolean checkDSLDragon(final EnderDragon dragon) {
         boolean checkDSLDragon = dragon.hasMetadata("DSL-Location");
         if (!checkDSLDragon) {
             checkDSLDragon = this.getDragonIDMeta(dragon) > 0;
@@ -759,48 +755,48 @@ public class DragonSlayer extends JavaPlugin {
         return checkDSLDragon;
     }
 
-    boolean checkOrigDragon(EnderDragon dragon) {
-        Object newDragEnt = this.getEntityEnderDragon(dragon);
+    boolean checkOrigDragon(final EnderDragon dragon) {
+        final Object newDragEnt = this.getEntityEnderDragon(dragon);
         return newDragEnt.getClass().getSimpleName().equals("EntityEnderDragon")
                 && newDragEnt.getClass().getTypeName().contains("net.minecraft");
     }
 
-    void FindPlayerAndAddToBossBar(BossBar BossBar, Entity ThisDrag) {
-        List<Player> AddedPlayers = BossBar.getPlayers();
-        int distancePlayer = this.configManager.getBossbarDistance(ThisDrag.getWorld().getName().toLowerCase());
+    void FindPlayerAndAddToBossBar(final BossBar BossBar, final Entity dragon) {
+        final List<Player> AddedPlayers = BossBar.getPlayers();
+        final int distancePlayer = this.configManager.getBossbarDistance(dragon.getWorld().getName().toLowerCase());
 
-        for (Player player : ThisDrag.getWorld().getPlayers()) {
+        for (final Player player : dragon.getWorld().getPlayers()) {
             if (!AddedPlayers.contains(player)) {
-                if (player.getLocation().distance(ThisDrag.getLocation()) < (double) distancePlayer) {
+                if (player.getLocation().distance(dragon.getLocation()) < (double) distancePlayer) {
                     BossBar.addPlayer(player);
                 }
-            } else if (player.getLocation().distance(ThisDrag.getLocation()) >= (double) distancePlayer) {
+            } else if (player.getLocation().distance(dragon.getLocation()) >= (double) distancePlayer) {
                 BossBar.removePlayer(player);
             }
         }
 
     }
 
-    BossBar findFreeBar(String worldname) {
-        for (BossBar BB : BossBars) {
+    BossBar findFreeBar(final String worldName) {
+        for (final BossBar BB : DragonSlayer.BossBars) {
             if (!BB.isVisible()) {
                 BB.setVisible(true);
-                this.setBBdark(BB, worldname);
+                this.setBBdark(BB, worldName);
                 BB.removeAll();
                 return BB;
             }
         }
 
-        BossBar BossBar = Bukkit.getServer().createBossBar("EnderDragon", BarColor.PURPLE, BarStyle.SOLID,
+        final BossBar BossBar = Bukkit.getServer().createBossBar("EnderDragon", BarColor.PURPLE, BarStyle.SOLID,
                 new BarFlag[] { BarFlag.PLAY_BOSS_MUSIC });
-        this.setBBdark(BossBar, worldname);
+        this.setBBdark(BossBar, worldName);
         BossBar.setVisible(true);
-        BossBars.add(BossBar);
+        DragonSlayer.BossBars.add(BossBar);
         return BossBar;
     }
 
-    private void setBBdark(BossBar BossBar, String worldname) {
-        if (this.configManager.getDark(worldname)) {
+    private void setBBdark(final BossBar BossBar, final String worldName) {
+        if (this.configManager.getDark(worldName)) {
             BossBar.addFlag(BarFlag.CREATE_FOG);
             BossBar.addFlag(BarFlag.DARKEN_SKY);
         } else {
@@ -810,37 +806,37 @@ public class DragonSlayer extends JavaPlugin {
 
     }
 
-    void handleBossbar(World TheWorld) {
-        for (EnderDragon ThisDrag : TheWorld.getEntitiesByClass(EnderDragon.class)) {
+    void handleBossbar(final World world) {
+        for (final EnderDragon ThisDrag : world.getEntitiesByClass(EnderDragon.class)) {
             if (this.checkDSLDragon(ThisDrag)) {
-                BossBar BossBar = getBossBarFromDragon(ThisDrag);
+                BossBar BossBar = DragonSlayer.getBossBarFromDragon(ThisDrag);
                 if (BossBar != null) {
                     this.FindPlayerAndAddToBossBar(BossBar, ThisDrag);
                     this.setBossBarAmountNOW(ThisDrag, BossBar);
                 } else if (ThisDrag.isValid() && !ThisDrag.isDead() && ThisDrag.getPhase() != Phase.DYING) {
-                    BossBar = this.findFreeBar(TheWorld.getName().toLowerCase());
+                    BossBar = this.findFreeBar(world.getName().toLowerCase());
                     if (BossBar != null) {
                         BossBar.setTitle(ThisDrag.getName());
                         this.setBossBarAmountNOW(ThisDrag, BossBar);
-                        putBossBarToDragon(ThisDrag, BossBar);
+                        DragonSlayer.putBossBarToDragon(ThisDrag, BossBar);
                         this.FindPlayerAndAddToBossBar(BossBar, ThisDrag);
                     }
                 }
 
                 this.OrigEnderDragonSetKilled(ThisDrag);
-                if (this.configManager.getGlowEffect(TheWorld.getName().toLowerCase())) {
-                    this.handleGlowTeams(TheWorld, this.getDragonIDMeta(ThisDrag), ThisDrag.getUniqueId().toString());
+                if (this.configManager.getGlowEffect(world.getName().toLowerCase())) {
+                    this.handleGlowTeams(world, this.getDragonIDMeta(ThisDrag), ThisDrag.getUniqueId().toString());
                 }
             }
         }
 
     }
 
-    int findDragonID(String Mapname, String dragonName) {
-        int maxD = this.configManager.getMaxdragons(Mapname);
+    int findDragonID(final String worldName, String dragonName) {
+        final int maxD = this.configManager.getMaxdragons(worldName);
 
         for (int i = 0; i <= maxD; ++i) {
-            String TestName = this.getConfig().getString(i == 0 ? "dragon." + Mapname + ".name" : "dragon." + Mapname + ".name_" + i);
+            String TestName = this.getConfig().getString(i == 0 ? "dragon." + worldName + ".name" : "dragon." + worldName + ".name_" + i);
             if (TestName != null && dragonName != null) {
                 TestName = TestName.replace('&', '§');
                 dragonName = dragonName.replaceAll("§[f0r]", "");
@@ -854,52 +850,52 @@ public class DragonSlayer extends JavaPlugin {
         return -1;
     }
 
-    static void putBossBarToDragon(EnderDragon ThisDragon, BossBar BossBar) { DragonBarList.put(ThisDragon, BossBar); }
+    static void putBossBarToDragon(final EnderDragon dragon, final BossBar BossBar) { DragonSlayer.DragonBarList.put(dragon, BossBar); }
 
-    static void delBossBarFromDragon(EnderDragon ThisDragon) { DragonBarList.remove(ThisDragon); }
+    static void delBossBarFromDragon(final EnderDragon dragon) { DragonSlayer.DragonBarList.remove(dragon); }
 
-    static BossBar getBossBarFromDragon(EnderDragon ThisDragon) {
+    static BossBar getBossBarFromDragon(final EnderDragon dragon) {
         BossBar BossBar = null;
 
         try {
-            BossBar = (BossBar) DragonBarList.get(ThisDragon);
-        } catch (Exception var3) {
+            BossBar = (BossBar) DragonSlayer.DragonBarList.get(dragon);
+        } catch (final Exception var3) {
         }
 
         return BossBar;
     }
 
-    public static void resetDragonsBossbar(Entity Dragon) {
-        BossBar BossBar = getBossBarFromDragon((EnderDragon) Dragon);
+    public static void resetDragonsBossbar(final Entity dragon) {
+        final BossBar BossBar = DragonSlayer.getBossBarFromDragon((EnderDragon) dragon);
         if (BossBar != null) {
             BossBar.setProgress(0.0D);
             BossBar.removeAll();
-            delBossBarFromDragon((EnderDragon) Dragon);
+            DragonSlayer.delBossBarFromDragon((EnderDragon) dragon);
             BossBar.setVisible(false);
         }
 
     }
 
     public static void cleanupDragons() {
-        Set<EnderDragon> testdrags = DragonBarList.keySet();
-        Set<EnderDragon> listDelDrags = new HashSet<EnderDragon>();
+        final Set<EnderDragon> testdrags = DragonSlayer.DragonBarList.keySet();
+        final Set<EnderDragon> listDelDrags = new HashSet<EnderDragon>();
 
-        for (EnderDragon testdrag : testdrags) {
+        for (final EnderDragon testdrag : testdrags) {
             if (!testdrag.isValid()) {
-                BossBar tobedeleted = getBossBarFromDragon(testdrag);
+                final BossBar tobedeleted = DragonSlayer.getBossBarFromDragon(testdrag);
                 tobedeleted.setVisible(false);
                 listDelDrags.add(testdrag);
             }
         }
 
-        for (EnderDragon testdrag : listDelDrags) {
-            DragonBarList.remove(testdrag);
+        for (final EnderDragon testdrag : listDelDrags) {
+            DragonSlayer.DragonBarList.remove(testdrag);
         }
 
     }
 
-    public static void deletePlayersBossBars(Player player) {
-        for (BossBar BB : BossBars) {
+    public static void deletePlayersBossBars(final Player player) {
+        for (final BossBar BB : DragonSlayer.BossBars) {
             if (BB.getPlayers().contains(player)) {
                 BB.removePlayer(player);
             }
@@ -907,21 +903,21 @@ public class DragonSlayer extends JavaPlugin {
 
     }
 
-    void setBossBarAmount(EnderDragon e) {
-        String w = e.getWorld().getName();
+    void setBossBarAmount(final EnderDragon dragon) {
+        final String w = dragon.getWorld().getName();
         if (this.checkWorld(w)) {
-            BossBar bossBar = getBossBarFromDragon(e);
+            final BossBar bossBar = DragonSlayer.getBossBarFromDragon(dragon);
             if (bossBar != null) {
-                this.setBossBarAmountNOW(e, bossBar);
+                this.setBossBarAmountNOW(dragon, bossBar);
             }
         }
 
     }
 
-    void setBossBarAmountNOW(EnderDragon e, BossBar bossBar) {
+    void setBossBarAmountNOW(final EnderDragon dragon, final BossBar bossBar) {
         this.getServer().getScheduler().runTaskLater(this, () -> {
-            double maxHealth = e.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
-            double dragHealth = e.getHealth();
+            final double maxHealth = dragon.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+            final double dragHealth = dragon.getHealth();
             double barHealthValue = dragHealth / maxHealth;
             if (barHealthValue < 0.0D) {
                 barHealthValue = 0.0D;
@@ -935,12 +931,12 @@ public class DragonSlayer extends JavaPlugin {
         }, 0L);
     }
 
-    static Location findPosForPortal(double tempX, double tempZ, World world, Material checkMat) {
-        Location portLoc = new Location(world, tempX, 60.0, tempZ);
+    static Location findPosForPortal(final double tempX, final double tempZ, final World world, final Material checkMat) {
+        final Location portLoc = new Location(world, tempX, 60.0, tempZ);
         double y = 200.0;
         while (y > 35.0) {
             portLoc.setY(y);
-            Material testMat = portLoc.getBlock().getType();
+            final Material testMat = portLoc.getBlock().getType();
             switch (testMat.toString()) {
             default: {
                 if (testMat.equals(checkMat)) {
@@ -958,26 +954,26 @@ public class DragonSlayer extends JavaPlugin {
         return portLoc;
     }
 
-    private void PlaceEmptyPortal(World ThisWorld) {
-        String worldname = ThisWorld.getName().toLowerCase();
+    private void PlaceEmptyPortal(final World world) {
+        final String worldname = world.getName().toLowerCase();
         if (!this.configManager.getOldPortal(worldname) && this.configManager.getDisableOrigDragonRespawn(worldname)) {
-            Location PortLoc = findPosForPortal((double) this.configManager.getPortalXdef(worldname),
-                    (double) this.configManager.getPortalZdef(worldname), ThisWorld, Material.BEDROCK);
+            final Location PortLoc = DragonSlayer.findPosForPortal((double) this.configManager.getPortalXdef(worldname),
+                    (double) this.configManager.getPortalZdef(worldname), world, Material.BEDROCK);
             this.placePortal(PortLoc, 0);
         }
 
     }
 
-    private void PlaceEmptyPortals(World ThisWorld, boolean place) {
+    private void PlaceEmptyPortals(final World world, final boolean place) {
         if (this.configManager.getMultiPortal()) {
-            String worldname = ThisWorld.getName().toLowerCase();
+            final String worldname = world.getName().toLowerCase();
             if (!this.configManager.getOldPortal(worldname)) {
-                Location defPortLoc = findPosForPortal((double) this.configManager.getPortalXdef(worldname),
-                        (double) this.configManager.getPortalZdef(worldname), ThisWorld, Material.BEDROCK);
+                final Location defPortLoc = DragonSlayer.findPosForPortal((double) this.configManager.getPortalXdef(worldname),
+                        (double) this.configManager.getPortalZdef(worldname), world, Material.BEDROCK);
 
                 for (int i = 1; i <= this.configManager.getMaxdragons(worldname); ++i) {
-                    Location PortLoc = findPosForPortal((double) this.configManager.getPortalX(worldname, i),
-                            (double) this.configManager.getPortalZ(worldname, i), ThisWorld, Material.BEDROCK);
+                    final Location PortLoc = DragonSlayer.findPosForPortal((double) this.configManager.getPortalX(worldname, i),
+                            (double) this.configManager.getPortalZ(worldname, i), world, Material.BEDROCK);
                     if (!defPortLoc.equals(PortLoc)) {
                         this.placePortal(PortLoc, place ? 0 : -1);
                     }
@@ -987,12 +983,12 @@ public class DragonSlayer extends JavaPlugin {
 
     }
 
-    void placePortal(Location position, int endPortal) {
-        Material portalStone = (endPortal < 0) ? Material.END_STONE : Material.BEDROCK;
-        World world = position.getWorld();
+    void placePortal(Location location, final int endPortal) {
+        final Material portalStone = (endPortal < 0) ? Material.END_STONE : Material.BEDROCK;
+        final World world = location.getWorld();
 
         for (int y = 0; y <= 10; ++y) {
-            int maxXZ = Math.min(y < 2 ? y + 1 : 3, 3);
+            final int maxXZ = Math.min(y < 2 ? y + 1 : 3, 3);
 
             for (int x = -maxXZ; x <= maxXZ; ++x) {
                 for (int z = -maxXZ; z <= maxXZ; ++z) {
@@ -1005,82 +1001,83 @@ public class DragonSlayer extends JavaPlugin {
                                 blockType = portalStone;
                             }
                         }
-                        position.getBlock().getRelative(x, y - 2, z).setType(blockType);
+                        location.getBlock().getRelative(x, y - 2, z).setType(blockType);
                     }
                 }
             }
         }
 
-        position.getBlock().setType(portalStone);
-        position = position.getBlock().getRelative(0, 1, 0).getLocation();
-        position.getBlock().setType((endPortal < 0) ? Material.AIR : portalStone);
-        position.getBlock().getRelative(0, 1, 0).setType((endPortal < 0) ? Material.AIR : portalStone);
-        position.getBlock().getRelative(0, 2, 0).setType((endPortal < 0) ? Material.AIR : portalStone);
+        location.getBlock().setType(portalStone);
+        location = location.getBlock().getRelative(0, 1, 0).getLocation();
+        location.getBlock().setType((endPortal < 0) ? Material.AIR : portalStone);
+        location.getBlock().getRelative(0, 1, 0).setType((endPortal < 0) ? Material.AIR : portalStone);
+        location.getBlock().getRelative(0, 2, 0).setType((endPortal < 0) ? Material.AIR : portalStone);
 
         if (endPortal > 0 && new Random().nextInt(100) < this.configManager.getPortalEggChance(world.getName().toLowerCase())) {
-            position.getBlock().getRelative(0, 3, 0).setType(Material.DRAGON_EGG);
+            location.getBlock().getRelative(0, 3, 0).setType(Material.DRAGON_EGG);
         }
 
         if (endPortal >= 0) {
-            Block block = position.getBlock();
+            final Block block = location.getBlock();
             block.getRelative(BlockFace.NORTH).setType(Material.BEDROCK);
             block.getRelative(BlockFace.SOUTH).setType(Material.BEDROCK);
             block.getRelative(BlockFace.EAST).setType(Material.BEDROCK);
             block.getRelative(BlockFace.WEST).setType(Material.BEDROCK);
 
-            Location torchLocation = block.getRelative(0, 1, 0).getLocation();
-            for (BlockFace face : BlockFace.values()) {
-                if (face != BlockFace.UP && face != BlockFace.DOWN) {
-                    DragonSlayer.setTorch(torchLocation, face);
-                }
+            final Location torchLocation = block.getRelative(0, 1, 0).getLocation();
+            Set<BlockFace> AllowedFaces = Set.of(BlockFace.EAST, BlockFace.WEST, BlockFace.NORTH, BlockFace.SOUTH);
+            for (final BlockFace face : AllowedFaces) {
+
+                DragonSlayer.setTorch(torchLocation, face);
+
             }
 
-            position = torchLocation.getBlock().getRelative(0, -1, 0).getLocation();
-            delSurroundingBlocks(position);
+            location = torchLocation.getBlock().getRelative(0, -1, 0).getLocation();
+            DragonSlayer.delSurroundingBlocks(location);
         }
 
-        for (Item item : world.getEntitiesByClass(Item.class)) {
-            if (item.getType() == EntityType.ITEM && item.getLocation().distance(position) <= 3.0D
+        for (final Item item : world.getEntitiesByClass(Item.class)) {
+            if (item.getType() == EntityType.ITEM && item.getLocation().distance(location) <= 3.0D
                     && item.getItemStack().getType().equals(Material.TORCH)) {
                 item.remove();
             }
         }
     }
 
-    private static void delSurroundingBlocks(Location Position2) {
-        Position2.getBlock().getRelative(BlockFace.NORTH).setType(Material.AIR);
-        Position2.getBlock().getRelative(BlockFace.SOUTH).setType(Material.AIR);
-        Position2.getBlock().getRelative(BlockFace.EAST).setType(Material.AIR);
-        Position2.getBlock().getRelative(BlockFace.WEST).setType(Material.AIR);
+    private static void delSurroundingBlocks(final Location location) {
+        location.getBlock().getRelative(BlockFace.NORTH).setType(Material.AIR);
+        location.getBlock().getRelative(BlockFace.SOUTH).setType(Material.AIR);
+        location.getBlock().getRelative(BlockFace.EAST).setType(Material.AIR);
+        location.getBlock().getRelative(BlockFace.WEST).setType(Material.AIR);
     }
 
-    private static void setTorch(Location Baseblock, BlockFace Face) {
+    private static void setTorch(final Location location, final BlockFace blockFace) {
         // Todo: discover why this is throwing errors...
-        Bukkit.getScheduler().runTask(instance, new Runnable() {
+        Bukkit.getScheduler().runTask(DragonSlayer.instance, new Runnable() {
             @Override
             public void run() {
-                Block TorchBlock = Baseblock.getBlock().getRelative(Face);
+                final Block TorchBlock = location.getBlock().getRelative(blockFace);
                 TorchBlock.setType(Material.WALL_TORCH);
 
-                // ((Directional)
-                // state.getBlockData()).setFacing(TorchBlock.getFace(Baseblock.getBlock()).getOppositeFace());
-                ((Directional) TorchBlock.getState().getBlockData()).setFacing(Face);
-                TorchBlock.getState().update(true);
+                BlockData blockData = TorchBlock.getBlockData();
+                if (blockData instanceof final Directional torchData) {
+                    torchData.setFacing(blockFace.getOppositeFace());
+                }
             }
         });
     }
 
-    private void WorldRefresh2(String ThisWorldsName) {
-        World ThisWorld = this.getDragonWorldFromString(ThisWorldsName);
+    private void WorldRefresh2(final String worldName) {
+        final World ThisWorld = this.getDragonWorldFromString(worldName);
         try {
-            Object edb = this.getEnderDragonBattle(ThisWorld);
-            if (db_a == null) {
-                db_a = edb.getClass().getDeclaredMethod("a", List.class);
+            final Object edb = this.getEnderDragonBattle(ThisWorld);
+            if (DragonSlayer.db_a == null) {
+                DragonSlayer.db_a = edb.getClass().getDeclaredMethod("a", List.class);
             }
 
-            if (db_a != null) {
-                db_a.setAccessible(true);
-                db_a.invoke(edb, Collections.emptyList());
+            if (DragonSlayer.db_a != null) {
+                DragonSlayer.db_a.setAccessible(true);
+                DragonSlayer.db_a.invoke(edb, Collections.emptyList());
             }
         } catch (SecurityException | NullPointerException | InvocationTargetException | IllegalAccessException
                 | NoSuchMethodException var4) {
@@ -1089,11 +1086,11 @@ public class DragonSlayer extends JavaPlugin {
 
         this.PlaceEmptyPortals(ThisWorld, true);
         this.getServer().getScheduler().runTaskLater(this, () -> {
-            Location PortLoc = findPosForPortal((double) this.configManager.getPortalXdef(ThisWorldsName),
-                    (double) this.configManager.getPortalZdef(ThisWorldsName), ThisWorld, Material.BEDROCK);
+            final Location PortLoc = DragonSlayer.findPosForPortal((double) this.configManager.getPortalXdef(worldName),
+                    (double) this.configManager.getPortalZdef(worldName), ThisWorld, Material.BEDROCK);
             this.activateChunksAroundPosition(PortLoc, ThisWorld, 2, false);
 
-            for (Entity ent : PortLoc.getWorld().getEntitiesByClass(EnderCrystal.class)) {
+            for (final Entity ent : PortLoc.getWorld().getEntitiesByClass(EnderCrystal.class)) {
                 if (PortLoc.distance(ent.getLocation()) <= 4.0D) {
                     ent.remove();
                 }
@@ -1102,17 +1099,17 @@ public class DragonSlayer extends JavaPlugin {
         }, 1200L);
     }
 
-    public void WorldRefresh(String ThisWorldsName) {
-        if (ThisWorldsName != null && this.checkWorld(ThisWorldsName.toLowerCase())) {
-            World ThisWorld = this.getDragonWorldFromString(ThisWorldsName);
+    public void WorldRefresh(final String worldName) {
+        if (worldName != null && this.checkWorld(worldName.toLowerCase())) {
+            final World ThisWorld = this.getDragonWorldFromString(worldName);
             if (ThisWorld.getEnvironment() != Environment.THE_END) {
-                this.logger.info("World refresh not possible! " + ThisWorldsName + " is not an END-World!");
+                this.logger.info("World refresh not possible! " + worldName + " is not an END-World!");
                 return;
             }
 
-            this.setWorldRefreshRun(ThisWorldsName);
-            Location PortLoc = findPosForPortal((double) this.configManager.getPortalXdef(ThisWorldsName),
-                    (double) this.configManager.getPortalZdef(ThisWorldsName), ThisWorld, Material.BEDROCK);
+            this.setWorldRefreshRun(worldName);
+            final Location PortLoc = DragonSlayer.findPosForPortal((double) this.configManager.getPortalXdef(worldName),
+                    (double) this.configManager.getPortalZdef(worldName), ThisWorld, Material.BEDROCK);
 
             for (double x = -3.0D; x <= 3.0D; x += 3.0D) {
                 for (double z = -3.0D; z <= 3.0D; z += 6.0D) {
@@ -1120,7 +1117,7 @@ public class DragonSlayer extends JavaPlugin {
                         z = 0.0D;
                     }
 
-                    Entity crystal = ThisWorld.spawnEntity(PortLoc.clone().add(x + 0.5D, 1.0D, z + 0.5D), EntityType.END_CRYSTAL);
+                    final Entity crystal = ThisWorld.spawnEntity(PortLoc.clone().add(x + 0.5D, 1.0D, z + 0.5D), EntityType.END_CRYSTAL);
                     crystal.setInvulnerable(true);
                 }
             }
@@ -1133,48 +1130,48 @@ public class DragonSlayer extends JavaPlugin {
 
             ThisWorld.getEnderDragonBattle().initiateRespawn();
 
-            this.configManager.setCreatePortal(true, ThisWorldsName.toLowerCase());
-            this.WorldRefresh2(ThisWorldsName);
+            this.configManager.setCreatePortal(true, worldName.toLowerCase());
+            this.WorldRefresh2(worldName);
         }
 
     }
 
-    private void setWorldRefreshRun(String ThisWorldsName) {
-        World ThisWorld = this.getDragonWorldFromString(ThisWorldsName);
+    private void setWorldRefreshRun(final String worldName) {
+        final World ThisWorld = this.getDragonWorldFromString(worldName);
         this.ProtectResetWorlds.add(ThisWorld);
         this.getServer().getScheduler().runTaskLater(this, () -> {
-            if (this.configManager.getRespawnPlayer(ThisWorldsName.toLowerCase())) {
-                this.WorldReset(ThisWorldsName, false);
+            if (this.configManager.getRespawnPlayer(worldName.toLowerCase())) {
+                this.WorldReset(worldName, false);
             }
 
         }, 2400L);
     }
 
-    void WorldReset(String ThisWorldsName, boolean force) {
+    void WorldReset(final String worldName, boolean force) {
         if (this.getServer().getPluginManager().getPlugin("Multiverse-Core") != null) {
-            if (ThisWorldsName != null && this.checkWorld(ThisWorldsName.toLowerCase())) {
-                if (this.configManager.getResetWorld(ThisWorldsName.toLowerCase())) {
+            if (worldName != null && this.checkWorld(worldName.toLowerCase())) {
+                if (this.configManager.getResetWorld(worldName.toLowerCase())) {
                     force = true;
                 }
 
-                World ThisWorld = this.getDragonWorldFromString(ThisWorldsName);
-                Collection<Player> PlayerList = ThisWorld.getPlayers();
-                World BaseWorld = this.getDragonWorldFromString(ThisWorldsName.replace("_the_end", ""));
+                final World ThisWorld = this.getDragonWorldFromString(worldName);
+                final Collection<Player> PlayerList = ThisWorld.getPlayers();
+                World BaseWorld = this.getDragonWorldFromString(worldName.replace("_the_end", ""));
                 if (BaseWorld == null) {
                     BaseWorld = this.getMultiverseCore().getMVWorldManager().getMVWorld(ThisWorld).getRespawnToWorld();
                 }
 
-                List<String> command = this.configManager.getRespawnCommand(ThisWorldsName.toLowerCase());
+                final List<String> command = this.configManager.getRespawnCommand(worldName.toLowerCase());
                 if (command != null && !command.isEmpty()) {
-                    for (String command2 : command) {
+                    for (final String command2 : command) {
                         if (!command2.contains("$player")) {
                             this.getServer().dispatchCommand(this.getServer().getConsoleSender(), command2);
                         }
                     }
                 }
 
-                for (Player player : PlayerList) {
-                    deletePlayersBossBars(player);
+                for (final Player player : PlayerList) {
+                    DragonSlayer.deletePlayersBossBars(player);
                     if (command != null && !command.isEmpty()) {
                         for (String command2 : command) {
                             if (command2.contains("$player")) {
@@ -1183,7 +1180,7 @@ public class DragonSlayer extends JavaPlugin {
                             }
                         }
                     } else if (BaseWorld != null) {
-                        Location Spawn = this.getMultiverseCore().getMVWorldManager().getMVWorld(BaseWorld).getSpawnLocation();
+                        final Location Spawn = this.getMultiverseCore().getMVWorldManager().getMVWorld(BaseWorld).getSpawnLocation();
                         Spawn.setWorld(BaseWorld);
                         player.teleport(Spawn);
                     }
@@ -1192,29 +1189,29 @@ public class DragonSlayer extends JavaPlugin {
                 if (force) {
                     this.RemoveDragons(ThisWorld, false, false);
                     this.getServer().getScheduler().runTaskLater(this, () -> {
-                        Long WorldsOldSeed = ThisWorld.getSeed();
-                        this.getMultiverseCore().getMVWorldManager().regenWorld(ThisWorldsName, true, false, WorldsOldSeed.toString());
+                        final Long WorldsOldSeed = ThisWorld.getSeed();
+                        this.getMultiverseCore().getMVWorldManager().regenWorld(worldName, true, false, WorldsOldSeed.toString());
                         if (this.configManager.getVerbosity()) {
                             this.logger.info(ChatColor.GREEN + "The world " + ThisWorld.getName() + " will get recreated!");
                         }
 
-                        World NewWorld = this.getDragonWorldFromString(ThisWorldsName);
+                        final World NewWorld = this.getDragonWorldFromString(worldName);
                         if (NewWorld != null) {
                             this.UpdateEndgatewayPosList(NewWorld);
-                            if (!this.configManager.getCreateGateways(ThisWorldsName.toLowerCase())) {
+                            if (!this.configManager.getCreateGateways(worldName.toLowerCase())) {
                                 this.prepareEndGateways(NewWorld, new ArrayList<Integer>());
                             }
 
                             Location Spawn = null;
                             Spawn = this.getMultiverseCore().getMVWorldManager().getMVWorld(NewWorld).getSpawnLocation();
 
-                            Material endstone = Material.END_STONE;
+                            final Material endstone = Material.END_STONE;
 
-                            Spawn.setY(findPosForPortal(Spawn.getX(), Spawn.getZ(), NewWorld, endstone).getY() + 4.0D);
+                            Spawn.setY(DragonSlayer.findPosForPortal(Spawn.getX(), Spawn.getZ(), NewWorld, endstone).getY() + 4.0D);
                             Spawn.setWorld(NewWorld);
                             this.getMultiverseCore().getMVWorldManager().getMVWorld(NewWorld).setSpawnLocation(Spawn);
-                            if (!this.configManager.getRespawnPlayer(ThisWorldsName.toLowerCase())) {
-                                for (Player player : PlayerList) {
+                            if (!this.configManager.getRespawnPlayer(worldName.toLowerCase())) {
+                                for (final Player player : PlayerList) {
                                     player.teleport(Spawn);
                                 }
                             }
@@ -1225,20 +1222,20 @@ public class DragonSlayer extends JavaPlugin {
                             }, 1L);
                         }
 
-                        this.configManager.setCreatePortal(true, ThisWorldsName.toLowerCase());
-                        if (this.configManager.getDelay(ThisWorldsName.toLowerCase()) > 0) {
+                        this.configManager.setCreatePortal(true, worldName.toLowerCase());
+                        if (this.configManager.getDelay(worldName.toLowerCase()) > 0) {
                             if (NewWorld != null) {
-                                Location Position = new Location(NewWorld, 0.0D, 1.0D, 0.0D);
-                                if (this.configManager.getDisableOrigDragonRespawn(ThisWorldsName.toLowerCase())) {
+                                final Location Position = new Location(NewWorld, 0.0D, 1.0D, 0.0D);
+                                if (this.configManager.getDisableOrigDragonRespawn(worldName.toLowerCase())) {
                                     this.setTestPortal2(Position);
                                 }
                             }
 
-                            this.SpawnXDragons(this.missingDragons(ThisWorldsName.toLowerCase()), ThisWorldsName.toLowerCase());
+                            this.SpawnXDragons(this.missingDragons(worldName.toLowerCase()), worldName.toLowerCase());
                         } else if (NewWorld != null) {
-                            Location Position = new Location(NewWorld, 0.0D, 1.0D, 0.0D);
+                            final Location Position = new Location(NewWorld, 0.0D, 1.0D, 0.0D);
                             this.setTestPortal2(Position);
-                            int ExistDrags = this.getDragonCount(ThisWorldsName);
+                            final int ExistDrags = this.getDragonCount(worldName);
                             if (ExistDrags > 0) {
                                 this.RemoveDragons(NewWorld, false, true);
                             }
@@ -1254,32 +1251,32 @@ public class DragonSlayer extends JavaPlugin {
     }
 
     private void checkForSleepingDragons() {
-        Collection<EnderDragon> entityList = new HashSet<EnderDragon>();
+        final Collection<EnderDragon> entityList = new HashSet<EnderDragon>();
 
-        for (String mapname : this.configManager.getMaplist()) {
-            World theWorld = this.getServer().getWorld(mapname);
+        for (final String mapname : this.configManager.getMaplist()) {
+            final World theWorld = this.getServer().getWorld(mapname);
             if (theWorld != null) {
-                Collection<EnderDragon> entityList_ = theWorld.getEntitiesByClass(EnderDragon.class);
+                final Collection<EnderDragon> entityList_ = theWorld.getEntitiesByClass(EnderDragon.class);
                 entityList.addAll(entityList_);
             }
         }
 
-        for (EnderDragon ent : DragonBarList.keySet()) {
+        for (final EnderDragon ent : DragonSlayer.DragonBarList.keySet()) {
             if (!entityList.contains(ent)) {
                 entityList.add(ent);
             }
         }
 
-        for (EnderDragon dragon : entityList) {
+        for (final EnderDragon dragon : entityList) {
             if (dragon.isValid()) {
-                int dragonId = this.getDragonIDMeta(dragon);
+                final int dragonId = this.getDragonIDMeta(dragon);
                 if (dragonId >= 0) {
-                    Location actLoc = dragon.getLocation();
-                    Location oldLoc = getDragonPosMeta(dragon);
+                    final Location actLoc = dragon.getLocation();
+                    final Location oldLoc = DragonSlayer.getDragonPosMeta(dragon);
                     if (oldLoc != null && oldLoc.equals(actLoc)) {
-                        String worldName = dragon.getWorld().getName().toLowerCase();
+                        final String worldName = dragon.getWorld().getName().toLowerCase();
 
-                        Phase nowPhase = dragon.getPhase();
+                        final Phase nowPhase = dragon.getPhase();
                         if (nowPhase != Phase.DYING && nowPhase != Phase.SEARCH_FOR_BREATH_ATTACK_TARGET && nowPhase != Phase.BREATH_ATTACK
                                 && nowPhase != Phase.ROAR_BEFORE_ATTACK) {
                             dragon.setPhase(Phase.CIRCLING);
@@ -1304,13 +1301,13 @@ public class DragonSlayer extends JavaPlugin {
         }
     }
 
-    void AtKillCommand(String ThisWorldsName, Player player, EnderDragon ThisDrag) {
-        if (ThisWorldsName != null && this.checkWorld(ThisWorldsName.toLowerCase())) {
-            int dragonId = this.getDragonIDMeta(ThisDrag);
+    void AtKillCommand(final String worldName, final Player player, final EnderDragon dragon) {
+        if (worldName != null && this.checkWorld(worldName.toLowerCase())) {
+            final int dragonId = this.getDragonIDMeta(dragon);
             if (dragonId >= 0) {
                 this.getServer().getScheduler().runTaskLater(this, () -> {
-                    World ThisWorld = this.getDragonWorldFromString(ThisWorldsName);
-                    List<String> commands = this.configManager.getDragonCommand(ThisWorldsName.toLowerCase(), dragonId);
+                    final World ThisWorld = this.getDragonWorldFromString(worldName);
+                    final List<String> commands = this.configManager.getDragonCommand(worldName.toLowerCase(), dragonId);
                     if (!commands.isEmpty()) {
                         this.myCommandsHandler(commands, ThisWorld, player);
                     }
@@ -1321,27 +1318,27 @@ public class DragonSlayer extends JavaPlugin {
 
     }
 
-    void myCommandsHandler(List<String> commands, World ThisWorld, Player player1) {
+    void myCommandsHandler(final List<String> commands, final World world, final Player p) {
         if (commands != null && !commands.isEmpty()) {
-            String ThisWorldName = ThisWorld.getName();
-            commands.forEach((command) -> {
+            final String ThisWorldName = world.getName();
+            commands.forEach(command -> {
                 if (!command.isEmpty()) {
-                    List<Player> pj = new ArrayList<Player>();
-                    if (command.contains("$player") && player1 == null) {
-                        pj.addAll(ThisWorld.getPlayers());
+                    final List<Player> pj = new ArrayList<Player>();
+                    if (command.contains("$player") && p == null) {
+                        pj.addAll(world.getPlayers());
                     } else {
-                        pj.add(player1);
+                        pj.add(p);
                     }
 
-                    pj.forEach((player) -> {
-                        String pn = player == null ? "" : player.getName();
+                    pj.forEach(player -> {
+                        final String pn = player == null ? "" : player.getName();
                         String command3 = command.replace("$player", pn).replace(ThisWorldName.toLowerCase(), ThisWorldName);
-                        if (PAPIenabled) {
+                        if (DragonSlayer.PAPIenabled) {
                             try {
                                 command3 = PlaceholderAPI.setPlaceholders(
                                         player == null ? this.getOfflineSlayer() : this.getServer().getOfflinePlayer(player.getUniqueId()),
                                         command3);
-                            } catch (NullPointerException var7) {
+                            } catch (final NullPointerException var7) {
                             }
                         }
 
@@ -1354,11 +1351,11 @@ public class DragonSlayer extends JavaPlugin {
 
     }
 
-    private void commandPercentageCall(String command, String ThisWorldName) {
+    private void commandPercentageCall(String command, final String worldName) {
         int perc_ = 100;
         String percAdd = "";
         if (command.startsWith("{") && command.contains("}")) {
-            String perc = command.substring(1, command.indexOf("}")).replaceAll("[ _a-zA-Z%-]", "");
+            final String perc = command.substring(1, command.indexOf("}")).replaceAll("[ _a-zA-Z%-]", "");
             if (!perc.isEmpty()) {
                 perc_ = Integer.parseInt(perc);
                 command = command.substring(command.indexOf("}") + 1);
@@ -1366,59 +1363,60 @@ public class DragonSlayer extends JavaPlugin {
             }
         }
 
-        int i = (new Random()).nextInt(100);
+        final int i = (new Random()).nextInt(100);
         if (i < perc_) {
             this.getServer().dispatchCommand(this.getServer().getConsoleSender(), command);
             if (this.configManager.getVerbosity()) {
-                this.logger
-                        .info(ChatColor.GREEN + "In the world " + ThisWorldName + " Command: '" + command + "' was executed..." + percAdd);
+                this.logger.info(ChatColor.GREEN + "In the world " + worldName + " Command: '" + command + "' was executed..." + percAdd);
             }
         }
 
     }
 
-    void setEndGatewayPortals(World ThisWorld) {
-        if (this.configManager.getCreateGateways(ThisWorld.getName().toLowerCase())) {
-            Object drb = this.getEnderDragonBattle(ThisWorld);
+    void setEndGatewayPortals(final World world) {
+        if (this.configManager.getCreateGateways(world.getName().toLowerCase())) {
+            final Object drb = this.getEnderDragonBattle(world);
             if (drb != null) {
                 try {
-                    if (endgatewayMethod == null) {
+                    if (DragonSlayer.endgatewayMethod == null) {
                         String methodeName = null;
                         methodeName = "spawnNewGateway";
 
-                        endgatewayMethod = drb.getClass().getDeclaredMethod(methodeName);
+                        DragonSlayer.endgatewayMethod = drb.getClass().getDeclaredMethod(methodeName);
                     }
 
-                    if (endgatewayMethod != null) {
-                        endgatewayMethod.setAccessible(true);
-                        endgatewayMethod.invoke(drb);
+                    if (DragonSlayer.endgatewayMethod != null) {
+                        DragonSlayer.endgatewayMethod.setAccessible(true);
+                        DragonSlayer.endgatewayMethod.invoke(drb);
                     }
                 } catch (SecurityException | NullPointerException | InvocationTargetException | IllegalAccessException
                         | NoSuchMethodException var5) {
-                    this.logger.warning("Unknown or unsupported Version :" + getVersion() + ", can't handle end-gateways...(yet?)");
+                    this.logger.warning(
+                            "Unknown or unsupported Version :" + DragonSlayer.getVersion() + ", can't handle end-gateways...(yet?)");
                 }
             }
         }
 
     }
 
-    private void prepareEndGateways(World ThisWorld, ArrayList<Integer> remainingGateways) {
-        Object DrBatt = this.getEnderDragonBattle(ThisWorld);
+    private void prepareEndGateways(final World world, final ArrayList<Integer> remainingGateways) {
+        final Object DrBatt = this.getEnderDragonBattle(world);
         if (DrBatt != null) {
             try {
-                if (OrigGateways == null) {
-                    OrigGateways = this.getFieldByName(DrBatt.getClass(), "gateways");
+                if (DragonSlayer.OrigGateways == null) {
+                    DragonSlayer.OrigGateways = this.getFieldByName(DrBatt.getClass(), "gateways");
                 }
 
-                if (OrigGateways != null) {
-                    OrigGateways.setAccessible(true);
-                    ObjectArrayList<Integer> newObjectArray = new ObjectArrayList<Integer>();
+                if (DragonSlayer.OrigGateways != null) {
+                    DragonSlayer.OrigGateways.setAccessible(true);
+                    final ObjectArrayList<Integer> newObjectArray = new ObjectArrayList<Integer>();
                     newObjectArray.addAll(remainingGateways);
-                    OrigGateways.set(DrBatt, newObjectArray);
+                    DragonSlayer.OrigGateways.set(DrBatt, newObjectArray);
 
                 }
             } catch (NullPointerException | IllegalAccessException | SecurityException var5) {
-                this.logger.warning("Unknown or unsupported Version :" + getVersion() + ", can't handle end-gateways...(yet?)");
+                this.logger
+                        .warning("Unknown or unsupported Version :" + DragonSlayer.getVersion() + ", can't handle end-gateways...(yet?)");
             }
         }
 
@@ -1427,11 +1425,11 @@ public class DragonSlayer extends JavaPlugin {
     static String getVersion() { return "1.20.6"; }
 
     private void setTestPortal() {
-        for (String DragonWorld : this.configManager.getMaplist()) {
+        for (final String DragonWorld : this.configManager.getMaplist()) {
             if (Bukkit.getWorld(DragonWorld) != null) {
-                World W = this.getDragonWorldFromString(DragonWorld);
-                Location Position = new Location(W, 0.0D, 1.0D, 0.0D);
-                Location Position2 = new Location(W, -2.0D, 1.0D, 2.0D);
+                final World W = this.getDragonWorldFromString(DragonWorld);
+                final Location Position = new Location(W, 0.0D, 1.0D, 0.0D);
+                final Location Position2 = new Location(W, -2.0D, 1.0D, 2.0D);
                 Position.getBlock().setType(Material.AIR);
                 Position2.getBlock().setType(Material.AIR);
                 if (this.configManager.getDisableOrigDragonRespawn(DragonWorld)) {
@@ -1443,40 +1441,40 @@ public class DragonSlayer extends JavaPlugin {
 
     }
 
-    private void setTestPortal2(Location Position) {
+    private void setTestPortal2(final Location location) {
         this.getServer().getScheduler().scheduleSyncDelayedTask(this, () -> {
-            Position.getBlock().getRelative(BlockFace.NORTH).setType(Material.BEDROCK);
-            Position.getBlock().getRelative(BlockFace.SOUTH).setType(Material.BEDROCK);
-            Position.getBlock().getRelative(BlockFace.WEST).setType(Material.BEDROCK);
-            Position.getBlock().getRelative(BlockFace.EAST).setType(Material.BEDROCK);
-            Position.getBlock().getRelative(BlockFace.UP).setType(Material.BEDROCK);
+            location.getBlock().getRelative(BlockFace.NORTH).setType(Material.BEDROCK);
+            location.getBlock().getRelative(BlockFace.SOUTH).setType(Material.BEDROCK);
+            location.getBlock().getRelative(BlockFace.WEST).setType(Material.BEDROCK);
+            location.getBlock().getRelative(BlockFace.EAST).setType(Material.BEDROCK);
+            location.getBlock().getRelative(BlockFace.UP).setType(Material.BEDROCK);
 
-            Position.getBlock().setType(Material.END_PORTAL);
+            location.getBlock().setType(Material.END_PORTAL);
 
         });
     }
 
     private void countEndGatewaysAndContinue() {
-        for (String DragonWorld : this.configManager.getMaplist()) {
+        for (final String DragonWorld : this.configManager.getMaplist()) {
             this.findAndUseEndgateways(DragonWorld);
         }
 
     }
 
-    void findAndUseEndgateways(String DragonWorld) {
+    void findAndUseEndgateways(final String worldName) {
 
-        World ThisWorld = this.getDragonWorldFromString(DragonWorld);
+        final World ThisWorld = this.getDragonWorldFromString(worldName);
         if (ThisWorld != null) {
             int Counter = 0;
-            long oldSeed = ThisWorld.getSeed();
+            final long oldSeed = ThisWorld.getSeed();
             ArrayList<Integer> shuffledList = new ArrayList<Integer>();
             shuffledList.addAll(ContiguousSet.create(Range.closedOpen(0, 20), DiscreteDomain.integers()));
             Collections.shuffle(shuffledList, new Random(oldSeed));
-            String Slots = " free slots...";
+            final String Slots = " free slots...";
 
             for (int x = 1; x <= 20; ++x) {
-                double x2 = 96.0D * Math.cos(2.0D * (-Math.PI + 0.15707963267948966D * (double) x));
-                double z2 = 96.0D * Math.sin(2.0D * (-Math.PI + 0.15707963267948966D * (double) x));
+                final double x2 = 96.0D * Math.cos(2.0D * (-Math.PI + 0.15707963267948966D * (double) x));
+                final double z2 = 96.0D * Math.sin(2.0D * (-Math.PI + 0.15707963267948966D * (double) x));
                 int x1 = (int) x2;
                 int z1 = (int) z2;
 
@@ -1488,19 +1486,19 @@ public class DragonSlayer extends JavaPlugin {
                     --z1;
                 }
 
-                Location Testlocation = new Location(ThisWorld, (double) x1, 75.0D, (double) z1);
-                if (!Endgateways.contains(Testlocation)) {
-                    Endgateways.add(Testlocation);
+                final Location Testlocation = new Location(ThisWorld, (double) x1, 75.0D, (double) z1);
+                if (!DragonSlayer.Endgateways.contains(Testlocation)) {
+                    DragonSlayer.Endgateways.add(Testlocation);
                 }
 
-                Block TestBlock = Testlocation.getBlock();
+                final Block TestBlock = Testlocation.getBlock();
                 if (TestBlock.getType() == Material.END_GATEWAY) {
                     ++Counter;
                     shuffledList.remove(shuffledList.indexOf(x == 20 ? 0 : x));
                 }
             }
 
-            if (!this.configManager.getCreateGateways(DragonWorld.toLowerCase())) {
+            if (!this.configManager.getCreateGateways(worldName.toLowerCase())) {
                 shuffledList = new ArrayList<Integer>();
             }
 
@@ -1512,10 +1510,10 @@ public class DragonSlayer extends JavaPlugin {
 
     }
 
-    void UpdateEndgatewayPosList(World ThisWorld) {
+    void UpdateEndgatewayPosList(final World world) {
         for (int x = 1; x <= 20; ++x) {
-            double x2 = 96.0D * Math.cos(2.0D * (-Math.PI + 0.15707963267948966D * (double) x));
-            double z2 = 96.0D * Math.sin(2.0D * (-Math.PI + 0.15707963267948966D * (double) x));
+            final double x2 = 96.0D * Math.cos(2.0D * (-Math.PI + 0.15707963267948966D * (double) x));
+            final double z2 = 96.0D * Math.sin(2.0D * (-Math.PI + 0.15707963267948966D * (double) x));
             int x1 = (int) x2;
             int z1 = (int) z2;
             if (x2 < (double) x1) {
@@ -1526,26 +1524,26 @@ public class DragonSlayer extends JavaPlugin {
                 --z1;
             }
 
-            Location Testlocation = new Location(ThisWorld, (double) x1, 75.0D, (double) z1);
-            if (!Endgateways.contains(Testlocation)) {
-                Endgateways.add(Testlocation);
+            final Location Testlocation = new Location(world, (double) x1, 75.0D, (double) z1);
+            if (!DragonSlayer.Endgateways.contains(Testlocation)) {
+                DragonSlayer.Endgateways.add(Testlocation);
             }
         }
 
-        ArrayList<Location> newEndgateways = new ArrayList<Location>();
+        final ArrayList<Location> newEndgateways = new ArrayList<Location>();
 
-        for (Location Loc : Endgateways) {
+        for (final Location Loc : DragonSlayer.Endgateways) {
             boolean worldExists = false;
 
             try {
                 if (Loc.isWorldLoaded()) {
                     worldExists = true;
                 }
-            } catch (NoSuchMethodError var11) {
+            } catch (final NoSuchMethodError var11) {
                 try {
                     Loc.getBlock().getWorld().getChunkAt(0, 0);
                     worldExists = true;
-                } catch (Exception var10) {
+                } catch (final Exception var10) {
                 }
             }
 
@@ -1554,29 +1552,29 @@ public class DragonSlayer extends JavaPlugin {
             }
         }
 
-        Endgateways = newEndgateways;
+        DragonSlayer.Endgateways = newEndgateways;
     }
 
-    void OrigEnderDragonSetKilled(EnderDragon ThisDragon) {
+    void OrigEnderDragonSetKilled(final EnderDragon dragon) {
 
-        Object DrBatt = this.getEnderDragonBattle(ThisDragon);
+        final Object DrBatt = this.getEnderDragonBattle(dragon);
         if (DrBatt != null) {
             try {
-                if (DragonKilled == null) {
-                    DragonKilled = this.getFieldByName(DrBatt.getClass(), "dragonKilled");
+                if (DragonSlayer.DragonKilled == null) {
+                    DragonSlayer.DragonKilled = this.getFieldByName(DrBatt.getClass(), "dragonKilled");
                 }
-                if (DragonUUID == null) {
-                    DragonUUID = this.getFieldByType(DrBatt.getClass(), "UUID");
+                if (DragonSlayer.DragonUUID == null) {
+                    DragonSlayer.DragonUUID = this.getFieldByType(DrBatt.getClass(), "UUID");
                 }
 
-                if (DragonKilled != null && DragonUUID != null) {
-                    DragonKilled.setAccessible(true);
-                    DragonUUID.setAccessible(true);
-                    DragonKilled.setBoolean(DrBatt, true);
-                    DragonUUID.set(DrBatt, (Object) null);
+                if (DragonSlayer.DragonKilled != null && DragonSlayer.DragonUUID != null) {
+                    DragonSlayer.DragonKilled.setAccessible(true);
+                    DragonSlayer.DragonUUID.setAccessible(true);
+                    DragonSlayer.DragonKilled.setBoolean(DrBatt, true);
+                    DragonSlayer.DragonUUID.set(DrBatt, (Object) null);
                 }
             } catch (SecurityException | NullPointerException | IllegalAccessException var5) {
-                this.logger.warning("Unknown or unsupported Version :" + getVersion() + " ,can't handle this here... (yet?)");
+                this.logger.warning("Unknown or unsupported Version :" + DragonSlayer.getVersion() + " ,can't handle this here... (yet?)");
                 if (this.configManager.debugOn()) {
                     var5.printStackTrace();
                 }
@@ -1585,22 +1583,22 @@ public class DragonSlayer extends JavaPlugin {
 
     }
 
-    void setEDBPreviouslyKilled(EnderDragon ThisDragon, boolean pk) {
+    void setEDBPreviouslyKilled(final EnderDragon dragon, final boolean previouslyKilled) {
 
-        Object DrBatt = this.getEnderDragonBattle(ThisDragon);
+        final Object DrBatt = this.getEnderDragonBattle(dragon);
 
         if (DrBatt != null) {
             try {
-                if (DragonPreviouslyKilled == null) {
-                    DragonPreviouslyKilled = this.getFieldByName(DrBatt.getClass(), "previouslyKilled");
+                if (DragonSlayer.DragonPreviouslyKilled == null) {
+                    DragonSlayer.DragonPreviouslyKilled = this.getFieldByName(DrBatt.getClass(), "previouslyKilled");
                 }
 
-                if (DragonPreviouslyKilled != null) {
-                    DragonPreviouslyKilled.setAccessible(true);
-                    DragonPreviouslyKilled.setBoolean(DrBatt, pk);
+                if (DragonSlayer.DragonPreviouslyKilled != null) {
+                    DragonSlayer.DragonPreviouslyKilled.setAccessible(true);
+                    DragonSlayer.DragonPreviouslyKilled.setBoolean(DrBatt, previouslyKilled);
                 }
             } catch (SecurityException | NullPointerException | IllegalAccessException var7) {
-                this.logger.warning("Unknown or unsupported Version :" + getVersion() + " ,can't handle this here... (yet?)");
+                this.logger.warning("Unknown or unsupported Version :" + DragonSlayer.getVersion() + " ,can't handle this here... (yet?)");
                 if (this.configManager.debugOn()) {
                     var7.printStackTrace();
                 }
@@ -1609,14 +1607,14 @@ public class DragonSlayer extends JavaPlugin {
 
     }
 
-    boolean getEnderDragonPreviouslyKilled(EnderDragon ThisDragon) {
+    boolean getEnderDragonPreviouslyKilled(final EnderDragon dragon) {
 
         try {
-            if (ThisDragon.getWorld().getEnvironment() == Environment.THE_END) {
-                return ThisDragon.getDragonBattle() != null ? ThisDragon.getDragonBattle().hasBeenPreviouslyKilled()
-                        : ThisDragon.getWorld().getEnderDragonBattle().hasBeenPreviouslyKilled();
+            if (dragon.getWorld().getEnvironment() == Environment.THE_END) {
+                return dragon.getDragonBattle() != null ? dragon.getDragonBattle().hasBeenPreviouslyKilled()
+                        : dragon.getWorld().getEnderDragonBattle().hasBeenPreviouslyKilled();
             }
-        } catch (NullPointerException var5) {
+        } catch (final NullPointerException var5) {
             if (this.configManager.debugOn()) {
                 this.logger.warning("NullPointerException in EnderDragonPreviouslyKilled... no API DragonBattle?:");
                 var5.printStackTrace();
@@ -1626,32 +1624,33 @@ public class DragonSlayer extends JavaPlugin {
         return true;
     }
 
-    void WorldGenEndTrophyPositionSet(EnderDragon ThisDrag, boolean setEDBforce) {
-        if (this.configManager.getMultiPortal() || serverStarted) {
-            if (!this.configManager.getMultiPortal() || !serverStarted || this.checkDSLDragon(ThisDrag)) {
-                World ThisWorld = ThisDrag.getWorld();
-                int dragonId = this.getDragonIDMeta(ThisDrag);
-                String Worldname = ThisWorld.getName().toLowerCase();
+    void WorldGenEndTrophyPositionSet(final EnderDragon dragon, final boolean setEDBforce) {
+        if (this.configManager.getMultiPortal() || DragonSlayer.serverStarted) {
+            if (!this.configManager.getMultiPortal() || !DragonSlayer.serverStarted || this.checkDSLDragon(dragon)) {
+                final World ThisWorld = dragon.getWorld();
+                final int dragonId = this.getDragonIDMeta(dragon);
+                final String Worldname = ThisWorld.getName().toLowerCase();
                 boolean errored = false;
 
                 try {
                     if (!this.configManager.getOldPortal(Worldname)) {
                         this.getServer().getScheduler().runTaskLater(this, () -> {
-                            String phaseController_m_c_name = "c";
-                            Object newDragEnt = this.getEntityEnderDragon(ThisDrag);
+                            final String phaseController_m_c_name = "c";
+                            final Object newDragEnt = this.getEntityEnderDragon(dragon);
                             Object phase_control = null;
                             String newPhase = "";
-                            int newX = this.configManager.getPortalX(Worldname, dragonId);
-                            int newZ = this.configManager.getPortalZ(Worldname, dragonId);
-                            int newY = findPosForPortal((double) newX, (double) newZ, ThisWorld, Material.BEDROCK).getBlockY() + 4;
+                            final int newX = this.configManager.getPortalX(Worldname, dragonId);
+                            final int newZ = this.configManager.getPortalZ(Worldname, dragonId);
+                            final int newY = DragonSlayer.findPosForPortal((double) newX, (double) newZ, ThisWorld, Material.BEDROCK)
+                                    .getBlockY() + 4;
 
                             try {
-                                if (this.phase_control_manager_method == null) {
-                                    this.phase_control_manager_method = this.getMethodByReturntype(newDragEnt.getClass(),
+                                if (this.phaseControlManager_method == null) {
+                                    this.phaseControlManager_method = this.getMethodByReturntype(newDragEnt.getClass(),
                                             "EnderDragonPhaseManager", (Class<?>[]) null);
                                 }
 
-                                Object phase_control_manager = this.phase_control_manager_method.invoke(newDragEnt);
+                                final Object phase_control_manager = this.phaseControlManager_method.invoke(newDragEnt);
                                 phase_control = this
                                         .getMethodByReturntype(phase_control_manager.getClass(), "DragonPhaseInstance", new Class[0])
                                         .invoke(phase_control_manager);
@@ -1666,9 +1665,9 @@ public class DragonSlayer extends JavaPlugin {
 
                             if (newPhase.startsWith("LandingApproach")) {
                                 try {
-                                    Field pathEnt_f = this.getFieldByName(phase_control.getClass(), "currentPath");
+                                    final Field pathEnt_f = this.getFieldByName(phase_control.getClass(), "currentPath");
                                     pathEnt_f.setAccessible(true);
-                                    Object pathEnt = pathEnt_f.get(phase_control);
+                                    final Object pathEnt = pathEnt_f.get(phase_control);
                                     if (pathEnt != null) {
                                         if (this.getPathPointFromPathEnt_method == null) {
                                             this.getPathPointFromPathEnt_method = this.getMethodByReturntype(pathEnt.getClass(), "Node",
@@ -1677,7 +1676,7 @@ public class DragonSlayer extends JavaPlugin {
 
                                         int pathEntListSize;
                                         if (this.pathEntList == null) {
-                                            Object pathPoint = this.getPathPointFromPathEnt_method.invoke(pathEnt, 0);
+                                            final Object pathPoint = this.getPathPointFromPathEnt_method.invoke(pathEnt, 0);
                                             this.pathEntList = this.getFieldByType(pathEnt.getClass(),
                                                     "List<" + pathPoint.getClass().getName() + ">");
                                             this.pathEntList.setAccessible(true);
@@ -1686,9 +1685,9 @@ public class DragonSlayer extends JavaPlugin {
                                         pathEntListSize = ((List<?>) this.pathEntList.get(pathEnt)).size();
 
                                         for (int j = 0; j < pathEntListSize; ++j) {
-                                            Object pathPointAusPathEnt = this.getPathPointFromPathEnt_method.invoke(pathEnt, j);
+                                            final Object pathPointAusPathEnt = this.getPathPointFromPathEnt_method.invoke(pathEnt, j);
                                             if (this.checkPositionRange(pathPointAusPathEnt, newX, newZ, 90)) {
-                                                Object newPathPoint = pathPointAusPathEnt.getClass()
+                                                final Object newPathPoint = pathPointAusPathEnt.getClass()
                                                         .getConstructor(Integer.TYPE, Integer.TYPE, Integer.TYPE)
                                                         .newInstance(newX, newY, newZ);
                                                 this.getMethodByReturntype(pathEnt.getClass(), "void",
@@ -1697,7 +1696,7 @@ public class DragonSlayer extends JavaPlugin {
                                             }
                                         }
                                     }
-                                } catch (Exception var23) {
+                                } catch (final Exception var23) {
                                     if (this.configManager.debugOn()) {
                                         this.logger.warning("Can not handle landing flight (PathEntity)!");
                                         var23.printStackTrace();
@@ -1706,12 +1705,12 @@ public class DragonSlayer extends JavaPlugin {
                             } else if (newPhase.startsWith("Landing")
                                     || newPhase.startsWith("Dying") && this.configManager.getDragonDeathFix(Worldname)) {
                                 try {
-                                    Object vec3 = this.getMethodByReturntype(phase_control.getClass(), "Vec3", (Class<?>[]) null)
+                                    final Object vec3 = this.getMethodByReturntype(phase_control.getClass(), "Vec3", (Class<?>[]) null)
                                             .invoke(phase_control);
                                     if (vec3 != null) {
-                                        String ved3d_add_name = "add";
-                                        double v_x = (double) vec3.getClass().getMethod("x").invoke(vec3);
-                                        double v_z = (double) vec3.getClass().getMethod("z").invoke(vec3);
+                                        final String ved3d_add_name = "add";
+                                        final double v_x = (double) vec3.getClass().getMethod("x").invoke(vec3);
+                                        final double v_z = (double) vec3.getClass().getMethod("z").invoke(vec3);
 
                                         if (Math.abs(v_x - (double) newX) > 1.0D && Math.abs(v_z - (double) newZ) > 1.0D) {
                                             Object vec3d_new = null;
@@ -1719,13 +1718,13 @@ public class DragonSlayer extends JavaPlugin {
                                             try {
                                                 vec3d_new = vec3.getClass().getConstructor(Double.TYPE, Double.TYPE, Double.TYPE)
                                                         .newInstance(newX, newY, newZ);
-                                            } catch (InstantiationException var21) {
+                                            } catch (final InstantiationException var21) {
                                                 if (this.configManager.debugOn()) {
                                                     this.logger
                                                             .warning("Debug: create Vec3D with dynamic reflection NMS... not directly...!");
                                                 }
 
-                                                Object vec3d_new1 = this
+                                                final Object vec3d_new1 = this
                                                         .getMethodByReturntype(vec3.getClass(), "Vec3", new Class[] { Double.TYPE })
                                                         .invoke(vec3, 0);
                                                 vec3d_new = vec3d_new1.getClass()
@@ -1733,7 +1732,7 @@ public class DragonSlayer extends JavaPlugin {
                                                         .invoke(vec3d_new1, newX, newY, newZ);
                                             }
 
-                                            Field vec3c_f = this.getFieldByType(phase_control.getClass(), "Vec3");
+                                            final Field vec3c_f = this.getFieldByType(phase_control.getClass(), "Vec3");
                                             vec3c_f.setAccessible(true);
                                             vec3c_f.set(phase_control, vec3d_new);
                                             phase_control.getClass().getDeclaredMethod(phaseController_m_c_name).invoke(phase_control);
@@ -1766,11 +1765,11 @@ public class DragonSlayer extends JavaPlugin {
                     if (this.checkServerStarted() ^ this.configManager.getMultiPortal()) {
                         this.invertServerstartedAndSetAllNavi();
                         useAll = true;
-                    } else if (ThisDrag.isValid()) {
-                        this.setDragonNavi(ThisDrag);
+                    } else if (dragon.isValid()) {
+                        this.setDragonNavi(dragon);
                     }
 
-                    if (this.checkDSLDragon(ThisDrag)) {
+                    if (this.checkDSLDragon(dragon)) {
                         this.setExitPortalLocation(ThisWorld, this.configManager.getPortalX(Worldname, dragonId), (Integer) null,
                                 this.configManager.getPortalZ(Worldname, dragonId), setEDBforce, useAll);
                     }
@@ -1780,24 +1779,24 @@ public class DragonSlayer extends JavaPlugin {
         }
     }
 
-    void setDragonNavi(EnderDragon drag) {
+    void setDragonNavi(final EnderDragon dragon) {
         Object entDrag;
         int dragonId;
         String world;
 
-        if (!this.checkDSLDragon(drag)) {
+        if (!this.checkDSLDragon(dragon)) {
             return;
         }
         String funcName = "";
-        world = drag.getWorld().getName().toLowerCase();
-        dragonId = this.getDragonIDMeta(drag);
-        entDrag = this.getEntityEnderDragon(drag);
-        if (naviField == null) {
+        world = dragon.getWorld().getName().toLowerCase();
+        dragonId = this.getDragonIDMeta(dragon);
+        entDrag = this.getEntityEnderDragon(dragon);
+        if (DragonSlayer.naviField == null) {
             funcName = "findClosestNode";
 
             try {
-                naviField = this.getFieldByName(entDrag.getClass(), "nodes");
-                fillArray = entDrag.getClass().getDeclaredMethod(funcName, new Class[0]);
+                DragonSlayer.naviField = this.getFieldByName(entDrag.getClass(), "nodes");
+                DragonSlayer.fillArray = entDrag.getClass().getDeclaredMethod(funcName, new Class[0]);
             } catch (IllegalArgumentException | NoSuchMethodException | SecurityException e) {
                 if (this.configManager.debugOn()) {
                     e.printStackTrace();
@@ -1805,34 +1804,34 @@ public class DragonSlayer extends JavaPlugin {
                 this.logger.warning("Unknown or unsupported Version :" + DragonSlayer.getVersion()
                         + ", can't handle EnderDragon's pathpoints...(yet?)");
 
-                this.logger.warning("Dragon is:" + drag.getName());
+                this.logger.warning("Dragon is:" + dragon.getName());
             }
         }
 
-        if (naviField != null && fillArray != null) {
+        if (DragonSlayer.naviField != null && DragonSlayer.fillArray != null) {
             try {
-                naviField.setAccessible(true);
-                Object pathArray = naviField.get(entDrag);
-                int newX = this.configManager.getPortalX(world, dragonId);
-                int newZ = this.configManager.getPortalZ(world, dragonId);
-                int newY = DragonSlayer.findPosForPortal(newX, newZ, drag.getWorld(), Material.BEDROCK).getBlockY();
+                DragonSlayer.naviField.setAccessible(true);
+                Object pathArray = DragonSlayer.naviField.get(entDrag);
+                final int newX = this.configManager.getPortalX(world, dragonId);
+                final int newZ = this.configManager.getPortalZ(world, dragonId);
+                int newY = DragonSlayer.findPosForPortal(newX, newZ, dragon.getWorld(), Material.BEDROCK).getBlockY();
                 newY = newY < 48 || newY > 80 ? newY - 64 : 0;
                 int n = 20;
                 while (n <= 23) {
                     Object path_n = ((Object[]) pathArray)[n];
                     if (path_n == null || path_n != null && this.checkPositionRange(path_n, newX, newZ, 20)) {
                         ((Object[]) pathArray)[0] = null;
-                        naviField.set(entDrag, pathArray);
-                        fillArray.setAccessible(true);
-                        fillArray.invoke(entDrag, new Object[0]);
-                        pathArray = naviField.get(entDrag);
+                        DragonSlayer.naviField.set(entDrag, pathArray);
+                        DragonSlayer.fillArray.setAccessible(true);
+                        DragonSlayer.fillArray.invoke(entDrag, new Object[0]);
+                        pathArray = DragonSlayer.naviField.get(entDrag);
                         int i = 0;
                         while (i < ((Object[]) pathArray).length) {
                             ((Object[]) pathArray)[i] = this.makeMovedPathpointObject(((Object[]) pathArray)[i], newX, newY, newZ);
                             ++i;
                         }
-                        naviField.set(entDrag, pathArray);
-                        Location teleLoc = drag.getLocation();
+                        DragonSlayer.naviField.set(entDrag, pathArray);
+                        final Location teleLoc = dragon.getLocation();
                         if (path_n == null) {
                             path_n = "x=" + teleLoc.getBlockX() + ",y=" + teleLoc.getBlockY() + ",z=" + teleLoc.getBlockZ();
                         }
@@ -1840,7 +1839,7 @@ public class DragonSlayer extends JavaPlugin {
                             teleLoc.setX(newX);
                             teleLoc.setZ(newZ);
                             teleLoc.setY(teleLoc.getBlockY() + new Random().nextInt(50));
-                            drag.teleport(teleLoc);
+                            dragon.teleport(teleLoc);
                         }
                         break;
                     }
@@ -1857,14 +1856,14 @@ public class DragonSlayer extends JavaPlugin {
     }
 
     private void invertServerstartedAndSetAllNavi() {
-        serverStarted = !this.checkServerStarted();
+        DragonSlayer.serverStarted = !this.checkServerStarted();
 
-        for (String Mapname : this.configManager.getMaplist()) {
-            World World = this.getDragonWorldFromString(Mapname);
+        for (final String Mapname : this.configManager.getMaplist()) {
+            final World World = this.getDragonWorldFromString(Mapname);
             if (World != null) {
-                Collection<EnderDragon> dragList = this.getDragonList(World, Mapname);
+                final Collection<EnderDragon> dragList = this.getDragonList(World, Mapname);
                 if (dragList != null) {
-                    for (EnderDragon drag : dragList) {
+                    for (final EnderDragon drag : dragList) {
                         if (this.getDragonIDMeta(drag) >= 0) {
                             this.setDragonNavi(drag);
                             if (drag.getPhase().equals(Phase.HOVER)) {
@@ -1878,18 +1877,18 @@ public class DragonSlayer extends JavaPlugin {
 
     }
 
-    void setExitPortalLocation(World ThisWorld, int newX, Integer newY, int newZ, boolean setEDBforce, boolean useAll) {
-        Object DragonBattle = this.getEnderDragonBattle(ThisWorld);
-        HashMap<Object, World> BattleList = new HashMap<Object, World>();
+    void setExitPortalLocation(final World world, final int newX, Integer newY, final int newZ, boolean setEDBforce, final boolean useAll) {
+        final Object DragonBattle = this.getEnderDragonBattle(world);
+        final HashMap<Object, World> BattleList = new HashMap<Object, World>();
         if (!useAll) {
             if (DragonBattle != null) {
-                BattleList.put(DragonBattle, ThisWorld);
+                BattleList.put(DragonBattle, world);
             }
         } else {
             setEDBforce = true;
 
-            for (String Mapname : this.configManager.getMaplist()) {
-                World World = this.getDragonWorldFromString(Mapname);
+            for (final String Mapname : this.configManager.getMaplist()) {
+                final World World = this.getDragonWorldFromString(Mapname);
                 if (World != null && World.getEnvironment() == Environment.THE_END) {
                     BattleList.put(this.getEnderDragonBattle(World), World);
                 }
@@ -1898,22 +1897,23 @@ public class DragonSlayer extends JavaPlugin {
 
         try {
             if (setEDBforce) {
-                for (Object Battle : BattleList.keySet()) {
-                    if (PortLoc_f == null) {
-                        PortLoc_f = this.getFieldByType(Battle.getClass(), "BlockPos", true);
+                for (final Object Battle : BattleList.keySet()) {
+                    if (DragonSlayer.PortLoc_f == null) {
+                        DragonSlayer.PortLoc_f = this.getFieldByType(Battle.getClass(), "BlockPos", true);
                     }
 
-                    PortLoc_f.setAccessible(true);
-                    Object EDB_PortLoc = PortLoc_f.get(Battle);
+                    DragonSlayer.PortLoc_f.setAccessible(true);
+                    final Object EDB_PortLoc = DragonSlayer.PortLoc_f.get(Battle);
                     if (EDB_PortLoc != null && (this.checkPositionRange(EDB_PortLoc, newX, newZ, 0) || newY != null)
                             || EDB_PortLoc == null) {
                         if (newY == null) {
-                            newY = findPosForPortal((double) newX, (double) newZ, (World) BattleList.get(Battle), Material.BEDROCK)
+                            newY = DragonSlayer
+                                    .findPosForPortal((double) newX, (double) newZ, (World) BattleList.get(Battle), Material.BEDROCK)
                                     .getBlockY();
                         }
 
-                        Object BlockPosN = this.makeBlockPositionObject(newX, newY, newZ);
-                        PortLoc_f.set(Battle, BlockPosN);
+                        final Object BlockPosN = this.makeBlockPositionObject(newX, newY, newZ);
+                        DragonSlayer.PortLoc_f.set(Battle, BlockPosN);
                     }
                 }
             }
@@ -1925,17 +1925,17 @@ public class DragonSlayer extends JavaPlugin {
         }
 
         if (DragonBattle != null) {
-            this.setCrystalAmount(DragonBattle, this.configManager.getOldPortal(ThisWorld.getName().toLowerCase()));
+            this.setCrystalAmount(DragonBattle, this.configManager.getOldPortal(world.getName().toLowerCase()));
         }
 
     }
 
-    private boolean checkPositionRange(Object loc, int newX, int newZ, int dist) {
-        String[] locArray = loc.toString().replace("BlockPos", "").replace("Node", "").replaceAll("[_ }{=]", "").split(",");
+    private boolean checkPositionRange(final Object loc, final int newX, final int newZ, final int dist) {
+        final String[] locArray = loc.toString().replace("BlockPos", "").replace("Node", "").replaceAll("[_ }{=]", "").split(",");
         int newX2 = 0;
         int newZ2 = 0;
         if (locArray != null && locArray.length == 3) {
-            for (String n : locArray) {
+            for (final String n : locArray) {
                 if (n.substring(0, 1).equals("x")) {
                     newX2 = Integer.parseInt(n.substring(1));
                 }
@@ -1950,21 +1950,21 @@ public class DragonSlayer extends JavaPlugin {
         return Math.abs(newX - newX2) > dist || Math.abs(newZ - newZ2) > dist;
     }
 
-    private Object makeBlockPositionObject(int newX, int newY, int newZ) {
+    private Object makeBlockPositionObject(final int newX, final int newY, final int newZ) {
 
         try {
-            if (newBlockPosition == null) {
-                Class<?> BlockPosition_c = Class.forName("net.minecraft.core.BlockPos");
+            if (DragonSlayer.newBlockPos == null) {
+                final Class<?> BlockPosition_c = Class.forName("net.minecraft.core.BlockPos");
 
-                newBlockPosition = BlockPosition_c.getConstructor(Integer.TYPE, Integer.TYPE, Integer.TYPE);
+                DragonSlayer.newBlockPos = BlockPosition_c.getConstructor(Integer.TYPE, Integer.TYPE, Integer.TYPE);
             }
 
-            if (newBlockPosition != null) {
-                return newBlockPosition.newInstance(newX, newY, newZ);
+            if (DragonSlayer.newBlockPos != null) {
+                return DragonSlayer.newBlockPos.newInstance(newX, newY, newZ);
             }
         } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException | SecurityException | NullPointerException
                 | IllegalArgumentException | InstantiationException | ClassNotFoundException var5) {
-            this.logger.warning("Unknown or unsupported Version :" + getVersion() + " ,can't handle BlockPosition...(yet?)");
+            this.logger.warning("Unknown or unsupported Version :" + DragonSlayer.getVersion() + " ,can't handle BlockPosition...(yet?)");
             if (this.configManager.debugOn()) {
                 var5.printStackTrace();
             }
@@ -1974,18 +1974,18 @@ public class DragonSlayer extends JavaPlugin {
 
     }
 
-    private void setCrystalAmount(Object DragonBattle, boolean forceOff) {
+    private void setCrystalAmount(final Object DragonBattle, final boolean forceOff) {
         try {
-            if (CrystalAmount_f == null) {
-                CrystalAmount_f = DragonBattle.getClass().getDeclaredField("crystalsAlive");
+            if (DragonSlayer.CrystalAmount_f == null) {
+                DragonSlayer.CrystalAmount_f = DragonBattle.getClass().getDeclaredField("crystalsAlive");
             }
 
-            CrystalAmount_f.setAccessible(true);
-            Object CrystalAmount = CrystalAmount_f.get(DragonBattle);
+            DragonSlayer.CrystalAmount_f.setAccessible(true);
+            final Object CrystalAmount = DragonSlayer.CrystalAmount_f.get(DragonBattle);
             if (CrystalAmount != null && this.configManager.getMultiPortal()) {
-                int newCrystalAmount = this.configManager.getPortalAggression(forceOff);
+                final int newCrystalAmount = this.configManager.getPortalAggression(forceOff);
                 if ((Integer) CrystalAmount != newCrystalAmount) {
-                    CrystalAmount_f.set(DragonBattle, newCrystalAmount);
+                    DragonSlayer.CrystalAmount_f.set(DragonBattle, newCrystalAmount);
                 }
             }
         } catch (NoSuchFieldException | NullPointerException | IllegalAccessException var5) {
@@ -1997,29 +1997,31 @@ public class DragonSlayer extends JavaPlugin {
 
     }
 
-    boolean isRefreshRunning(World ThisWorld) {
+    boolean isRefreshRunning(final World world) {
 
-        return !ThisWorld.getEnderDragonBattle().getRespawnPhase().toString().equalsIgnoreCase("NONE");
+        return !world.getEnderDragonBattle().getRespawnPhase().toString().equalsIgnoreCase("NONE");
 
     }
 
     /** {@link net.minecraft.world.entity.boss.enderdragon.EnderDragon} */
     @SuppressWarnings("unchecked")
-    Object getEntityEnderDragon(EnderDragon dragon) {
+    Object getEntityEnderDragon(final EnderDragon dragon) {
         Object returnwert = null;
 
         try {
-            if (CraftEnderDragonClass == null) {
-                CraftEnderDragonClass = (Class<CraftEnderDragon>) Class.forName("org.bukkit.craftbukkit.entity.CraftEnderDragon");
+            if (DragonSlayer.CraftEnderDragonClass == null) {
+                DragonSlayer.CraftEnderDragonClass = (Class<CraftEnderDragon>) Class
+                        .forName("org.bukkit.craftbukkit.entity.CraftEnderDragon");
             }
 
-            if (CraftEnderDragonClass.isInstance(dragon)) {
-                Object craftDragon = CraftEnderDragonClass.cast(dragon);
-                returnwert = CraftEnderDragonClass.getDeclaredMethod("getHandle").invoke(craftDragon);
+            if (DragonSlayer.CraftEnderDragonClass.isInstance(dragon)) {
+                final Object craftDragon = DragonSlayer.CraftEnderDragonClass.cast(dragon);
+                returnwert = DragonSlayer.CraftEnderDragonClass.getDeclaredMethod("getHandle").invoke(craftDragon);
             }
         } catch (SecurityException | NullPointerException | IllegalArgumentException | IllegalAccessException | InvocationTargetException
                 | NoSuchMethodException | ClassNotFoundException var4) {
-            this.logger.warning("Unknown or unsupported Version :" + getVersion() + ", can't handle EntityEnderDragon...(yet?)");
+            this.logger
+                    .warning("Unknown or unsupported Version :" + DragonSlayer.getVersion() + ", can't handle EntityEnderDragon...(yet?)");
             if (this.configManager.debugOn()) {
                 var4.printStackTrace();
             }
@@ -2031,41 +2033,39 @@ public class DragonSlayer extends JavaPlugin {
     /**
      * {@link net.minecraft.world.level.pathfinder.Node}
      */
-    private Object makeMovedPathpointObject(Object point, int newX, int newY, int newZ) {
+    private Object makeMovedPathpointObject(final Object point, final int newX, final int newY, final int newZ) {
         try {
-            if (newPathPoint == null) {
+            if (DragonSlayer.newPathPoint == null) {
                 Class<?> pathPoint_cl = null;
                 pathPoint_cl = Class.forName("net.minecraft.world.level.pathfinder.Node");
 
-                newPathPoint = pathPoint_cl.getConstructor(Integer.TYPE, Integer.TYPE, Integer.TYPE);
+                DragonSlayer.newPathPoint = pathPoint_cl.getConstructor(Integer.TYPE, Integer.TYPE, Integer.TYPE);
 
-                pp_geta_func = this.getMethodByReturntype(pathPoint_cl, "BlockPos", new Class[0]);
-                Class<?> baseBlockPosition_cl = null;
+                DragonSlayer.pp_geta_func = this.getMethodByName(pathPoint_cl, "asVec3");
+                Class<?> Vec3_cl = Class.forName("net.minecraft.world.phys.Vec3");
 
-                baseBlockPosition_cl = Class.forName("net.minecraft.core.BlockPos");
-
-                bbp_getX = baseBlockPosition_cl.getDeclaredMethod("getX");
-                bbp_getY = baseBlockPosition_cl.getDeclaredMethod("getY");
-                bbp_getZ = baseBlockPosition_cl.getDeclaredMethod("getZ");
+                DragonSlayer.Vec3_getX = Vec3_cl.getDeclaredMethod("x");
+                DragonSlayer.Vec3_getY = Vec3_cl.getDeclaredMethod("y");
+                DragonSlayer.Vec3_getZ = Vec3_cl.getDeclaredMethod("z");
 
             }
 
-            Object baselockPos = pp_geta_func.invoke(point);
-            return newPathPoint.newInstance(((int) bbp_getX.invoke(baselockPos)) + newX, (int) bbp_getY.invoke(baselockPos) + newY,
-                    (int) bbp_getZ.invoke(baselockPos) + newZ);
+            final Object baselockPos = DragonSlayer.pp_geta_func.invoke(point);
+            return DragonSlayer.newPathPoint.newInstance(((int) DragonSlayer.Vec3_getX.invoke(baselockPos)) + newX,
+                    (int) DragonSlayer.Vec3_getY.invoke(baselockPos) + newY, (int) DragonSlayer.Vec3_getZ.invoke(baselockPos) + newZ);
         } catch (ClassNotFoundException | IllegalAccessException | IllegalArgumentException | InvocationTargetException
                 | InstantiationException | NoSuchMethodException | SecurityException var7) {
-            this.logger.warning("Unknown or unsupported Version :" + getVersion() + ", can't handle Pathpoints...(yet?)");
+            this.logger.warning("Unknown or unsupported Version :" + DragonSlayer.getVersion() + ", can't handle Pathpoints...(yet?)");
             return null;
         }
     }
 
-    private Field getFieldByName(Class<?> _class, String name) { return this.getFieldByName(_class, name, false); }
+    private Field getFieldByName(final Class<?> _class, final String name) { return this.getFieldByName(_class, name, false); }
 
-    private Field getFieldByName(Class<?> _class, String name, boolean onlyPublics) {
-        Field[] allFields = onlyPublics ? _class.getFields() : _class.getDeclaredFields();
+    private Field getFieldByName(final Class<?> _class, final String name, final boolean onlyPublics) {
+        final Field[] allFields = onlyPublics ? _class.getFields() : _class.getDeclaredFields();
 
-        for (Field field : allFields) {
+        for (final Field field : allFields) {
             if (field.getName().equals(name)) {
                 return field;
             }
@@ -2078,12 +2078,12 @@ public class DragonSlayer extends JavaPlugin {
         return null;
     }
 
-    private Field getFieldByType(Class<?> _class, String returnType) { return this.getFieldByType(_class, returnType, false); }
+    private Field getFieldByType(final Class<?> _class, final String returnType) { return this.getFieldByType(_class, returnType, false); }
 
-    private Field getFieldByType(Class<?> _class, String returnType, boolean onlyPublics) {
-        Field[] allFields = onlyPublics ? _class.getFields() : _class.getDeclaredFields();
+    private Field getFieldByType(final Class<?> _class, final String returnType, final boolean onlyPublics) {
+        final Field[] allFields = onlyPublics ? _class.getFields() : _class.getDeclaredFields();
 
-        for (Field field : allFields) {
+        for (final Field field : allFields) {
             if (field.getGenericType().getTypeName().endsWith(returnType)) {
                 return field;
             }
@@ -2096,17 +2096,17 @@ public class DragonSlayer extends JavaPlugin {
         return null;
     }
 
-    Method getMethodByReturntype(Class<?> _class, String returnType, Class<?>[] parameters) {
+    Method getMethodByReturntype(final Class<?> _class, final String returnType, final Class<?>[] parameters) {
         return this.getMethodByReturntype(_class, returnType, parameters, false);
     }
 
-    Method getMethodByReturntype(Class<?> _class, String returnType, Class<?>[] parameters, boolean noRaw) {
-        Method[] allMeth = _class.getMethods();
+    Method getMethodByReturntype(final Class<?> _class, final String returnType, final Class<?>[] parameters, final boolean noRaw) {
+        final Method[] allMeth = _class.getMethods();
 
-        label47: for (Method meth : allMeth) {
+        label47: for (final Method meth : allMeth) {
             if (parameters != null) {
-                int paramLength = parameters.length;
-                Class<?>[] methParameters = meth.getParameterTypes();
+                final int paramLength = parameters.length;
+                final Class<?>[] methParameters = meth.getParameterTypes();
                 if (methParameters == null || paramLength != methParameters.length) {
                     continue;
                 }
@@ -2130,33 +2130,34 @@ public class DragonSlayer extends JavaPlugin {
         return null;
     }
 
-    private Object getEnderDragonBattle(EnderDragon ThisDragon) { return this.getEnderDragonBattle(ThisDragon.getWorld()); }
+    private Object getEnderDragonBattle(final EnderDragon dragon) { return this.getEnderDragonBattle(dragon.getWorld()); }
 
     /** {@link net.minecraft.world.level.dimension.end.EndDragonFight} */
-    private Object getEnderDragonBattle(World ThisWorld) {
+    private Object getEnderDragonBattle(final World world) {
         try {
-            Object worldServer = this.getWorldServer(ThisWorld);
-            if (getEDBMethod == null) {
-                getEDBMethod = this.getMethodByReturntype(worldServer.getClass(), "EndDragonFight", (Class<?>[]) null);
+            final Object worldServer = this.getWorldServer(world);
+            if (DragonSlayer.getEDBMethod == null) {
+                DragonSlayer.getEDBMethod = this.getMethodByReturntype(worldServer.getClass(), "EndDragonFight", (Class<?>[]) null);
             }
 
-            Object edb = getEDBMethod.invoke(worldServer);
-            if (edb == null && ThisWorld.getEnvironment() == Environment.THE_END) {
+            Object edb = DragonSlayer.getEDBMethod.invoke(worldServer);
+            if (edb == null && world.getEnvironment() == Environment.THE_END) {
                 try {
-                    long ws_long = ThisWorld.getSeed();
-                    Object emptyNBT = Class.forName("net.minecraft.nbt.CompoundTag").newInstance();
+                    final long ws_long = world.getSeed();
+                    final Object emptyNBT = Class.forName("net.minecraft.nbt.CompoundTag").newInstance();
                     edb = Class.forName("net.minecraft.world.level.dimension.end.EndDragonFight")
                             .getConstructor(worldServer.getClass(), Long.TYPE, emptyNBT.getClass())
                             .newInstance(worldServer, ws_long, emptyNBT);
 
-                    Field ws_edb_f = this.getFieldByType(worldServer.getClass(), "EndDragonFight");
+                    final Field ws_edb_f = this.getFieldByType(worldServer.getClass(), "EndDragonFight");
                     ws_edb_f.setAccessible(true);
                     ws_edb_f.set(worldServer, edb);
                     if (this.configManager.getVerbosity()) {
-                        this.logger.warning("Started Hot-Fix for DragonBattle in world " + ThisWorld.getName());
+                        this.logger.warning("Started Hot-Fix for DragonBattle in world " + world.getName());
                     }
-                } catch (InstantiationException var7) {
-                    this.logger.warning("unsupported Version :" + getVersion() + ", can't create own dragonbattle for this version...");
+                } catch (final InstantiationException var7) {
+                    this.logger.warning(
+                            "unsupported Version :" + DragonSlayer.getVersion() + ", can't create own dragonbattle for this version...");
                     if (this.configManager.debugOn()) {
                         var7.printStackTrace();
                     }
@@ -2166,7 +2167,7 @@ public class DragonSlayer extends JavaPlugin {
             return edb;
         } catch (SecurityException | NullPointerException | IllegalArgumentException | IllegalAccessException | InvocationTargetException
                 | NoSuchMethodException | ClassNotFoundException var8) {
-            this.logger.warning("Unknown or unsupported Version :" + getVersion() + ", can't handle dragonbattle...(yet?)");
+            this.logger.warning("Unknown or unsupported Version :" + DragonSlayer.getVersion() + ", can't handle dragonbattle...(yet?)");
             if (this.configManager.debugOn()) {
                 var8.printStackTrace();
             }
@@ -2174,21 +2175,21 @@ public class DragonSlayer extends JavaPlugin {
         return null;
     }
 
-    void PlaceArmorStand(String w, double x, double y, double z, float yaw) {
-        Location as_loc = new Location(this.getDragonWorldFromString(w), x, y, z);
+    void PlaceArmorStand(final String worldName, final double x, final double y, final double z, final float yaw) {
+        final Location as_loc = new Location(this.getDragonWorldFromString(worldName), x, y, z);
         as_loc.setYaw(yaw);
-        ArmorStand armorStand = this.spawnArmorStand1(as_loc);
+        final ArmorStand armorStand = this.spawnArmorStand1(as_loc);
         this.setArmorstandMeta(armorStand);
         if (this.getSlayer() != null && this.getStatueVersion() == 1) {
             this.setArmorStandNameETC(armorStand, as_loc.clone());
         }
 
-        if (ProtocolLibEnabled) {
+        if (DragonSlayer.ProtocolLibEnabled) {
             if (this.getStatueVersion() >= 2) {
                 this.changeArmorStand1_NPCValues(armorStand);
 
                 this.getServer().getScheduler().runTaskLater(this, () -> {
-                    Location target_l = as_loc.clone().add(0.0D, 1.8D, 0.0D);
+                    final Location target_l = as_loc.clone().add(0.0D, 1.8D, 0.0D);
                     armorStand.teleport(target_l);
                     this.getServer().getScheduler().runTaskLater(this, () -> {
                         if (as_loc.equals(armorStand.getLocation())) {
@@ -2196,13 +2197,13 @@ public class DragonSlayer extends JavaPlugin {
                                 as_loc.getChunk().load();
                                 as_loc.getChunk().getEntities();
                                 armorStand.teleport(target_l);
-                            } catch (Exception var5) {
+                            } catch (final Exception var5) {
                             }
 
                             this.getServer().getScheduler().runTaskLater(this, () -> {
                                 if (as_loc.equals(armorStand.getLocation())) {
                                     this.RemoveArmorStand();
-                                    ArmorStand armorStand_ = this.spawnArmorStand1(target_l);
+                                    final ArmorStand armorStand_ = this.spawnArmorStand1(target_l);
                                     this.changeArmorStand1_NPCValues(armorStand_);
                                     this.setArmorstandMeta(armorStand_);
                                 }
@@ -2213,16 +2214,16 @@ public class DragonSlayer extends JavaPlugin {
                     }, 10L);
                 }, 10L);
 
-                protLibHandler.replaceNPCStatue();
+                DragonSlayer.protLibHandler.replaceNPCStatue();
             } else {
-                protLibHandler.removeNPCStatue();
+                DragonSlayer.protLibHandler.removeNPCStatue();
             }
         }
 
     }
 
-    private ArmorStand spawnArmorStand1(Location as_loc) {
-        ArmorStand armorStand = (ArmorStand) as_loc.getWorld().spawnEntity(as_loc, EntityType.ARMOR_STAND);
+    private ArmorStand spawnArmorStand1(final Location location) {
+        final ArmorStand armorStand = (ArmorStand) location.getWorld().spawnEntity(location, EntityType.ARMOR_STAND);
         armorStand.setGravity(false);
         armorStand.setArms(true);
         armorStand.setMarker(true);
@@ -2241,19 +2242,19 @@ public class DragonSlayer extends JavaPlugin {
         armorStand.setVisible(true);
         armorStand.setCollidable(false);
 
-        double pitch = -20.0D;
-        float headYaw = 20.0F;
-        setHeadDirection(armorStand, headYaw, pitch);
-        double armPitch = Math.toRadians(-100.0D);
-        double armYaw = Math.toRadians(12.0D);
-        double armRoll = Math.toRadians(-10.0D);
-        EulerAngle eangle = new EulerAngle(armPitch, armYaw, armRoll);
+        final double pitch = -20.0D;
+        final float headYaw = 20.0F;
+        DragonSlayer.setHeadDirection(armorStand, headYaw, pitch);
+        final double armPitch = Math.toRadians(-100.0D);
+        final double armYaw = Math.toRadians(12.0D);
+        final double armRoll = Math.toRadians(-10.0D);
+        final EulerAngle eangle = new EulerAngle(armPitch, armYaw, armRoll);
         armorStand.setRightArmPose(eangle);
         return armorStand;
     }
 
-    private void changeArmorStand1_NPCValues(ArmorStand armorStand) {
-        String playername = this.configManager.getSlayerPAPIFormatNickString();
+    private void changeArmorStand1_NPCValues(final ArmorStand armorStand) {
+        final String playername = this.configManager.getSlayerPAPIFormatNickString();
         if (playername != null) {
             armorStand.setCustomName(playername);
         }
@@ -2267,20 +2268,20 @@ public class DragonSlayer extends JavaPlugin {
 
     }
 
-    private void setArmorStandNameETC(ArmorStand armorStand, Location as_loc) {
-        Material[] matList = this.getArmorMat();
-        EntityEquipment Equip = armorStand.getEquipment();
+    private void setArmorStandNameETC(final ArmorStand armorStand, final Location location) {
+        final Material[] matList = this.getArmorMat();
+        final EntityEquipment Equip = armorStand.getEquipment();
         Equip.setHelmet(this.getPlayerHead());
         Equip.setBoots(new ItemStack(matList[0]));
         Equip.setChestplate(new ItemStack(matList[1]));
         Equip.setLeggings(new ItemStack(matList[2]));
         Equip.setItemInMainHand(new ItemStack(matList[3]));
-        Equip.setItemInOffHand(getDragonSkull());
+        Equip.setItemInOffHand(DragonSlayer.getDragonSkull());
 
-        ArmorStand armorStand2 = (ArmorStand) as_loc.getWorld().spawnEntity(as_loc, EntityType.ARMOR_STAND);
+        final ArmorStand armorStand2 = (ArmorStand) location.getWorld().spawnEntity(location, EntityType.ARMOR_STAND);
         armorStand2.setGravity(false);
         armorStand2.setMarker(false);
-        String playername = this.configManager.getSlayerPAPIFormatNickString();
+        final String playername = this.configManager.getSlayerPAPIFormatNickString();
         if (playername != null) {
             armorStand2.setCustomName(playername);
         } else {
@@ -2303,7 +2304,7 @@ public class DragonSlayer extends JavaPlugin {
     static ItemStack getDragonSkull() { return new ItemStack(Material.DRAGON_HEAD); }
 
     Material[] getArmorMat() {
-        Material[] matList = new Material[5];
+        final Material[] matList = new Material[5];
         this.configManager.translateASConfigName("material");
         String baseMat = this.getConfig().getString("global.statue_material", "DIAMOND").toUpperCase();
         baseMat = Material.getMaterial(baseMat + "_BOOTS") != null ? baseMat : "DIAMOND";
@@ -2316,24 +2317,24 @@ public class DragonSlayer extends JavaPlugin {
         return matList;
     }
 
-    private void setArmorstandMeta(ArmorStand armorstand) {
-        MetadataValue MdV_Armorstand = new FixedMetadataValue(this, true);
+    private void setArmorstandMeta(final ArmorStand armorstand) {
+        final MetadataValue MdV_Armorstand = new FixedMetadataValue(this, true);
         armorstand.setMetadata("DSL-AS", MdV_Armorstand);
     }
 
-    void setNPCStatueMeta(Entity statue, String value, String metaAdd) {
-        MetadataValue mdV_Statue = new FixedMetadataValue(this, value);
+    void setNPCStatueMeta(final Entity statue, final String value, final String metaAdd) {
+        final MetadataValue mdV_Statue = new FixedMetadataValue(this, value);
         statue.setMetadata("DSL-AS" + (metaAdd != null ? metaAdd : ""), mdV_Statue);
     }
 
-    String getNPCStatueMeta(Entity statue, String metaAdd) {
+    String getNPCStatueMeta(final Entity statue, final String metaAdd) {
         String value = "";
         if (statue.hasMetadata("DSL-AS" + (metaAdd != null ? metaAdd : ""))) {
-            List<MetadataValue> list = statue.getMetadata("DSL-AS" + (metaAdd != null ? metaAdd : ""));
+            final List<MetadataValue> list = statue.getMetadata("DSL-AS" + (metaAdd != null ? metaAdd : ""));
             if (list != null && list.size() != 0) {
                 try {
                     value = (String) ((MetadataValue) list.get(0)).value();
-                } catch (Exception var6) {
+                } catch (final Exception var6) {
                 }
             }
         }
@@ -2342,20 +2343,20 @@ public class DragonSlayer extends JavaPlugin {
     }
 
     int getStatueVersion() {
-        int i = Integer.parseInt(this.getConfig().getString("global.statue_version", "1"));
+        final int i = Integer.parseInt(this.getConfig().getString("global.statue_version", "1"));
         return i >= 1 && i <= 2 ? i : 1;
     }
 
     World getArmorstandWorld() {
-        Location theArmorStandLoc = this.armorStandLoc(false);
+        final Location theArmorStandLoc = this.armorStandLoc(false);
         return theArmorStandLoc != null ? theArmorStandLoc.getWorld() : null;
     }
 
     ItemStack getPlayerHead() {
-        String offlineslayer = this.getSlayer();
-        ItemStack skull = new ItemStack(Material.PLAYER_HEAD, 1);
+        final String offlineslayer = this.getSlayer();
+        final ItemStack skull = new ItemStack(Material.PLAYER_HEAD, 1);
 
-        SkullMeta HeadMetadata = (SkullMeta) skull.getItemMeta();
+        final SkullMeta HeadMetadata = (SkullMeta) skull.getItemMeta();
         if (this.getSlayer() != null) {
             HeadMetadata.setOwningPlayer(this.getOfflineSlayer());
             HeadMetadata.setDisplayName(offlineslayer);
@@ -2365,46 +2366,46 @@ public class DragonSlayer extends JavaPlugin {
         return skull;
     }
 
-    private static void setHeadDirection(ArmorStand armorStand, float yaw, double pitch) {
-        double xint = Math.toRadians(pitch);
-        double zint = 0.0D;
-        double yint = Math.toRadians((double) yaw);
-        EulerAngle eangle = new EulerAngle(xint, yint, zint);
+    private static void setHeadDirection(final ArmorStand armorStand, final float yaw, final double pitch) {
+        final double xint = Math.toRadians(pitch);
+        final double zint = 0.0D;
+        final double yint = Math.toRadians((double) yaw);
+        final EulerAngle eangle = new EulerAngle(xint, yint, zint);
         armorStand.setHeadPose(eangle);
     }
 
     boolean RemoveArmorStand() {
-        Location as_loc = this.armorStandLoc(true);
+        final Location as_loc = this.armorStandLoc(true);
         if (as_loc == null) {
             return false;
         } else {
-            World w = as_loc.getWorld();
-            double as_x = as_loc.getX();
-            double as_z = as_loc.getZ();
-            double as_y = as_loc.getY();
-            Chunk MyChunk = w.getChunkAt(as_loc);
+            final World w = as_loc.getWorld();
+            final double as_x = as_loc.getX();
+            final double as_z = as_loc.getZ();
+            final double as_y = as_loc.getY();
+            final Chunk MyChunk = w.getChunkAt(as_loc);
             if (!MyChunk.isLoaded()) {
                 MyChunk.load();
             }
 
-            Entity[] chunkEntities = MyChunk.getEntities();
-            Collection<ArmorStand> ArmorStands = w.getEntitiesByClass(ArmorStand.class);
-            Collection<Entity> allEntities = w.getEntities();
-            Collection<Entity> newEntities = new ArrayList<Entity>();
+            final Entity[] chunkEntities = MyChunk.getEntities();
+            final Collection<ArmorStand> ArmorStands = w.getEntitiesByClass(ArmorStand.class);
+            final Collection<Entity> allEntities = w.getEntities();
+            final Collection<Entity> newEntities = new ArrayList<Entity>();
 
-            for (Entity ent : chunkEntities) {
+            for (final Entity ent : chunkEntities) {
                 if (ent instanceof ArmorStand && !newEntities.contains(ent)) {
                     newEntities.add(ent);
                 }
             }
 
-            for (ArmorStand ent : ArmorStands) {
+            for (final ArmorStand ent : ArmorStands) {
                 if (!newEntities.contains(ent)) {
                     newEntities.add(ent);
                 }
             }
 
-            for (Entity ent : allEntities) {
+            for (final Entity ent : allEntities) {
                 if (ent instanceof ArmorStand && !newEntities.contains(ent)) {
                     newEntities.add(ent);
                 }
@@ -2412,11 +2413,11 @@ public class DragonSlayer extends JavaPlugin {
 
             boolean done = false;
 
-            for (Entity armorstand : newEntities) {
-                Location checkLoc = armorstand.getLocation();
-                double check_x = checkLoc.getX();
-                double check_z = checkLoc.getZ();
-                double check_y = checkLoc.getY();
+            for (final Entity armorstand : newEntities) {
+                final Location checkLoc = armorstand.getLocation();
+                final double check_x = checkLoc.getX();
+                final double check_z = checkLoc.getZ();
+                final double check_y = checkLoc.getY();
                 if (armorstand.hasMetadata("DSL-AS")
                         || Math.abs(check_x - as_x) <= 1.0D && Math.abs(check_z - as_z) <= 1.0D && Math.abs(check_y - as_y) <= 2.5D) {
                     armorstand.remove();
@@ -2428,12 +2429,12 @@ public class DragonSlayer extends JavaPlugin {
         }
     }
 
-    Location armorStandLoc(boolean simple) {
+    Location armorStandLoc(final boolean simple) {
         if (this.getConfig().getConfigurationSection("armorstand") != null) {
-            ConfigurationSection oldSec = this.getConfig().getConfigurationSection("armorstand");
-            ConfigurationSection newSec = this.getConfig().createSection("statue");
+            final ConfigurationSection oldSec = this.getConfig().getConfigurationSection("armorstand");
+            final ConfigurationSection newSec = this.getConfig().createSection("statue");
 
-            for (Entry<String, Object> mapEntry : oldSec.getValues(true).entrySet()) {
+            for (final Entry<String, Object> mapEntry : oldSec.getValues(true).entrySet()) {
                 newSec.set((String) mapEntry.getKey(), mapEntry.getValue());
             }
 
@@ -2442,13 +2443,13 @@ public class DragonSlayer extends JavaPlugin {
         }
 
         if (this.getConfig().getString("statue.world") != null) {
-            String w = this.getConfig().getString("statue.world");
-            double x = this.getConfig().getDouble("statue.x");
-            double y = this.getConfig().getDouble("statue.y");
-            double z = this.getConfig().getDouble("statue.z");
-            float yaw = (float) this.getConfig().getDouble("statue.yaw");
-            World W = this.getDragonWorldFromString(w);
-            Location as_loc = new Location(W, x, y, z);
+            final String w = this.getConfig().getString("statue.world");
+            final double x = this.getConfig().getDouble("statue.x");
+            final double y = this.getConfig().getDouble("statue.y");
+            final double z = this.getConfig().getDouble("statue.z");
+            final float yaw = (float) this.getConfig().getDouble("statue.yaw");
+            final World W = this.getDragonWorldFromString(w);
+            final Location as_loc = new Location(W, x, y, z);
             if (!simple) {
                 as_loc.setYaw(yaw);
             }
@@ -2460,28 +2461,28 @@ public class DragonSlayer extends JavaPlugin {
     }
 
     private void resetArmorStand() {
-        Location as_loc = this.armorStandLoc(false);
+        final Location as_loc = this.armorStandLoc(false);
         if (as_loc != null) {
-            World W = as_loc.getWorld();
+            final World W = as_loc.getWorld();
             if (W != null) {
-                Chunk MyChunk = W.getChunkAt(as_loc);
+                final Chunk MyChunk = W.getChunkAt(as_loc);
                 if (!MyChunk.isLoaded()) {
                     MyChunk.load();
                 }
 
                 MyChunk.getEntities();
-                int delay = 10;
+                final int delay = 10;
 
                 this.getServer().getScheduler().runTaskLater(this, () -> {
-                    Entity[] List = MyChunk.getEntities();
-                    int as_loc_y = as_loc.getBlockY();
+                    final Entity[] List = MyChunk.getEntities();
+                    final int as_loc_y = as_loc.getBlockY();
                     as_loc.setY(0.0D);
                     int amount = 0;
 
-                    for (Entity armorstand : List) {
+                    for (final Entity armorstand : List) {
                         if (armorstand instanceof ArmorStand) {
-                            Location armstloc = armorstand.getLocation();
-                            int armorstand_y = armstloc.getBlockY();
+                            final Location armstloc = armorstand.getLocation();
+                            final int armorstand_y = armstloc.getBlockY();
                             armstloc.setY(0.0D);
                             if (armstloc.equals(as_loc) && armorstand_y - as_loc_y <= 1 && armorstand_y - as_loc_y >= 0) {
                                 if (!armorstand.hasMetadata("DSL-AS")) {
@@ -2494,8 +2495,8 @@ public class DragonSlayer extends JavaPlugin {
                     }
 
                     if (amount <= 1 || this.getStatueVersion() != 1) {
-                        if (amount == 0 || amount <= 1 && this.getStatueVersion() == 1
-                                || this.getStatueVersion() >= 2 && protLibHandler != null && protLibHandler.NPCStatue == null) {
+                        if (amount == 0 || amount <= 1 && this.getStatueVersion() == 1 || this.getStatueVersion() >= 2
+                                && DragonSlayer.protLibHandler != null && DragonSlayer.protLibHandler.NPCStatue == null) {
                             if (this.configManager.getVerbosity()) {
                                 this.logger.info("Found that the Statue is not where it should be, resetting it!");
                             }
@@ -2513,12 +2514,12 @@ public class DragonSlayer extends JavaPlugin {
     }
 
     void replaceArmorStand() {
-        Location theArmorStandLoc = this.armorStandLoc(false);
+        final Location theArmorStandLoc = this.armorStandLoc(false);
         if (theArmorStandLoc != null) {
             try {
                 theArmorStandLoc.getChunk().load();
                 theArmorStandLoc.getChunk().getEntities();
-            } catch (Exception var3) {
+            } catch (final Exception var3) {
             }
 
             this.getServer().getScheduler().runTaskLater(this, () -> {
@@ -2538,7 +2539,7 @@ public class DragonSlayer extends JavaPlugin {
         this.getServer().getScheduler().scheduleSyncRepeatingTask(this, () -> {
             try {
                 this.getServer().getScheduler().runTaskAsynchronously(this, () -> this.checkGWReverse(15));
-            } catch (Exception ignored) {
+            } catch (final Exception ignored) {
                 if (this.configManager.debugOn())
                     ignored.printStackTrace();
             }
@@ -2553,9 +2554,9 @@ public class DragonSlayer extends JavaPlugin {
      * @return The first method that satisfies the regular expression.
      * @throws IllegalArgumentException If the method cannot be found.
      */
-    public Method getMethodByName(Class<?> clazz, String nameRegex) {
-        Pattern match = Pattern.compile(nameRegex);
-        for (Method method : clazz.getMethods()) {
+    public Method getMethodByName(final Class<?> clazz, final String nameRegex) {
+        final Pattern match = Pattern.compile(nameRegex);
+        for (final Method method : clazz.getMethods()) {
             if (match.matcher(method.getName()).matches()) {
                 return method;
             }
@@ -2565,78 +2566,78 @@ public class DragonSlayer extends JavaPlugin {
     }
 
     @SuppressWarnings("unchecked")
-    private void checkGWReverse(int distance) {
+    private void checkGWReverse(final int distance) {
         try {
 
-            boolean bypassON = Boolean.parseBoolean(this.getConfig().getString("global.bypassdragongateway"));
+            final boolean bypassON = Boolean.parseBoolean(this.getConfig().getString("global.bypassdragongateway"));
             int bypassFunc = Integer.parseInt(this.getConfig().getString("global.bypassfunc", "1"));
             bypassFunc = bypassFunc >= 1 && bypassFunc <= 2 ? bypassFunc : 1;
             if (bypassON) {
-                for (String mapname : this.configManager.getMaplist()) {
-                    World thisWorld = this.getDragonWorldFromString(mapname);
+                for (final String mapname : this.configManager.getMaplist()) {
+                    final World thisWorld = this.getDragonWorldFromString(mapname);
                     if (thisWorld != null) {
                         Collection<EnderDragon> dragons = null;
 
-                        Object thisCraftWorld = getCraftWorld(thisWorld);
+                        final Object thisCraftWorld = this.getCraftWorld(thisWorld);
                         if (thisCraftWorld != null) {
                             try {
-                                Method getMethodByName = this.getMethodByName(CraftWorldClass, "getEntitiesByClass");
+                                final Method getMethodByName = this.getMethodByName(DragonSlayer.CraftWorldClass, "getEntitiesByClass");
                                 dragons = (Collection<EnderDragon>) getMethodByName.invoke(thisCraftWorld, EnderDragon.class);
 
-                            } catch (Exception var19) {
+                            } catch (final Exception var19) {
                             }
 
                         } else {
                             try {
                                 dragons = thisWorld.getEntitiesByClass(EnderDragon.class);
-                            } catch (Exception var19) {
+                            } catch (final Exception var19) {
                             }
                         }
                         if (dragons != null) {
-                            for (EnderDragon dragon : dragons) {
-                                Location dragLoc = dragon.getLocation();
-                                Block foundGateway = CheckGatewaysForDragon(thisWorld, dragLoc, distance);
+                            for (final EnderDragon dragon : dragons) {
+                                final Location dragLoc = dragon.getLocation();
+                                final Block foundGateway = DragonSlayer.CheckGatewaysForDragon(thisWorld, dragLoc, distance);
                                 if (foundGateway != null) {
                                     if (bypassFunc == 1) {
-                                        double dragY = dragLoc.getY();
-                                        double gateY = (double) foundGateway.getY();
+                                        final double dragY = dragLoc.getY();
+                                        final double gateY = (double) foundGateway.getY();
                                         double diffY = gateY - dragY;
                                         diffY = diffY < 0.0D ? diffY - (double) distance * 1.2D : diffY + (double) distance * 1.2D;
-                                        Location target = dragLoc.clone().add(0.0D, diffY, 0.0D);
+                                        final Location target = dragLoc.clone().add(0.0D, diffY, 0.0D);
                                         this.syncTP(dragon, target);
                                     } else if (bypassFunc == 2) {
                                         this.getServer().getScheduler().runTaskLater(this, () -> {
                                             if (foundGateway.getType() == Material.END_GATEWAY) {
                                                 try {
-                                                    Object worldServer = this.getWorldServer(thisWorld);
-                                                    Object blockPos = this.makeBlockPositionObject(foundGateway.getX(), foundGateway.getY(),
-                                                            foundGateway.getZ());
+                                                    final Object worldServer = this.getWorldServer(thisWorld);
+                                                    final Object blockPos = this.makeBlockPositionObject(foundGateway.getX(),
+                                                            foundGateway.getY(), foundGateway.getZ());
                                                     Object tileEnt = null;
-                                                    if (getTileEntity == null) {
-                                                        String funcName = "getBlockEntity";
+                                                    if (DragonSlayer.getTileEntity == null) {
+                                                        final String funcName = "getBlockEntity";
 
                                                         try {
-                                                            getTileEntity = Class.forName("net.minecraft.world.level.Level")
+                                                            DragonSlayer.getTileEntity = Class.forName("net.minecraft.world.level.Level")
                                                                     .getDeclaredMethod(funcName, blockPos.getClass(), Boolean.TYPE);
                                                         } catch (ClassNotFoundException | NoSuchMethodException ignored) {
                                                         }
                                                     }
 
                                                     try {
-                                                        getTileEntity.setAccessible(true);
-                                                        tileEnt = getTileEntity.invoke(worldServer, blockPos, false);
-                                                    } catch (IllegalArgumentException var10) {
-                                                        tileEnt = getTileEntity.invoke(worldServer, blockPos);
+                                                        DragonSlayer.getTileEntity.setAccessible(true);
+                                                        tileEnt = DragonSlayer.getTileEntity.invoke(worldServer, blockPos, false);
+                                                    } catch (final IllegalArgumentException var10) {
+                                                        tileEnt = DragonSlayer.getTileEntity.invoke(worldServer, blockPos);
                                                     }
 
                                                     // Object nbt_1 = null;
                                                     if (tileEnt != null) {
 
-                                                        if (saveNBT == null) {
+                                                        if (DragonSlayer.saveNBT == null) {
                                                             // Until I learn how to get HolderLookup$Provider this will be skipped
                                                             // saveNBT = tileEnt.getClass().getDeclaredMethod("saveWithFullMetadata");
 
-                                                            if (saveNBT != null) {
+                                                            if (DragonSlayer.saveNBT != null) {
                                                                 // nbt_1 = saveNBT.invoke(tileEnt);
                                                             } else {
                                                                 // nbt_1 = Class.forName("net.minecraft.nbt.CompoundTag").newInstance();
@@ -2655,10 +2656,11 @@ public class DragonSlayer extends JavaPlugin {
 
                                                             try {
                                                                 try {
-                                                                    getTileEntity.setAccessible(true);
-                                                                    tileEnt2 = getTileEntity.invoke(worldServer, blockPos, false);
-                                                                } catch (IllegalArgumentException var7) {
-                                                                    tileEnt2 = getTileEntity.invoke(worldServer, blockPos);
+                                                                    DragonSlayer.getTileEntity.setAccessible(true);
+                                                                    tileEnt2 = DragonSlayer.getTileEntity.invoke(worldServer, blockPos,
+                                                                            false);
+                                                                } catch (final IllegalArgumentException var7) {
+                                                                    tileEnt2 = DragonSlayer.getTileEntity.invoke(worldServer, blockPos);
                                                                 }
 
                                                                 if (tileEnt2 != null) {
@@ -2666,7 +2668,7 @@ public class DragonSlayer extends JavaPlugin {
                                                                             .getDeclaredMethod("loadAdditional", nbt_1.getClass())
                                                                             .invoke(tileEnt2, nbt_1);
                                                                 }
-                                                            } catch (Exception var8) {
+                                                            } catch (final Exception var8) {
                                                                 if (this.configManager.debugOn()) {
                                                                     this.logger.warning("Can not handle TileEntity/NBT recreate)");
                                                                     var8.printStackTrace();
@@ -2675,7 +2677,7 @@ public class DragonSlayer extends JavaPlugin {
 
                                                         }, 40L);
                                                     }
-                                                } catch (Exception var13) {
+                                                } catch (final Exception var13) {
                                                     if (this.configManager.debugOn()) {
                                                         this.logger.warning("Can not handle TileEntity/NBT...)");
                                                         var13.printStackTrace();
@@ -2691,19 +2693,19 @@ public class DragonSlayer extends JavaPlugin {
                     }
                 }
             }
-        } catch (Exception e) {
+        } catch (final Exception e) {
 
         }
     }
 
-    private void syncTP(EnderDragon ThisDragon, Location target) {
-        this.getServer().getScheduler().runTaskLater(this, () -> ThisDragon.teleport(target), 0L);
+    private void syncTP(final EnderDragon dragon, final Location target) {
+        this.getServer().getScheduler().runTaskLater(this, () -> dragon.teleport(target), 0L);
     }
 
-    static Block CheckGatewaysForDragon(World ThisWorld, Location DragLoc, int distance) {
-        for (Location TestLoc : Endgateways) {
-            if (TestLoc.getWorld() == ThisWorld) {
-                Block testBlock = TestLoc.getBlock();
+    static Block CheckGatewaysForDragon(final World world, final Location DragLoc, final int distance) {
+        for (final Location TestLoc : DragonSlayer.Endgateways) {
+            if (TestLoc.getWorld() == world) {
+                final Block testBlock = TestLoc.getBlock();
                 if (testBlock != null && testBlock.getChunk().isLoaded() && testBlock.getType() == Material.END_GATEWAY
                         && DragLoc.distance(TestLoc) < (double) distance) {
                     return testBlock;
@@ -2714,15 +2716,15 @@ public class DragonSlayer extends JavaPlugin {
         return null;
     }
 
-    static Location getClosestGateway(World thisWorld, Location testLoc) {
+    static Location getClosestGateway(final World world, final Location location) {
         double distance = -1.0D;
         Location returnLoc = null;
 
-        for (Location checkLoc : Endgateways) {
-            if (checkLoc.getWorld() == thisWorld) {
-                Block testBlock = checkLoc.getBlock();
+        for (final Location checkLoc : DragonSlayer.Endgateways) {
+            if (checkLoc.getWorld() == world) {
+                final Block testBlock = checkLoc.getBlock();
                 if (testBlock != null && testBlock.getChunk().isLoaded() && testBlock.getType() == Material.END_GATEWAY) {
-                    double dist_ = testLoc.distance(checkLoc);
+                    final double dist_ = location.distance(checkLoc);
                     if (distance == -1.0D || dist_ < distance) {
                         distance = dist_;
                         returnLoc = checkLoc;
@@ -2734,14 +2736,14 @@ public class DragonSlayer extends JavaPlugin {
         return returnLoc;
     }
 
-    Object getCraftWorld(World ThisWorld) {
+    Object getCraftWorld(final World world) {
         try {
-            if (CraftWorldClass == null) {
-                CraftWorldClass = (Class<?>) Class.forName("org.bukkit.craftbukkit.CraftWorld");
+            if (DragonSlayer.CraftWorldClass == null) {
+                DragonSlayer.CraftWorldClass = (Class<?>) Class.forName("org.bukkit.craftbukkit.CraftWorld");
             }
 
-            if (CraftWorldClass.isInstance(ThisWorld)) {
-                return CraftWorldClass.cast(ThisWorld);
+            if (DragonSlayer.CraftWorldClass.isInstance(world)) {
+                return DragonSlayer.CraftWorldClass.cast(world);
             }
         } catch (SecurityException | NullPointerException | IllegalArgumentException | ClassNotFoundException var3) {
             if (this.configManager.debugOn()) {
@@ -2753,10 +2755,10 @@ public class DragonSlayer extends JavaPlugin {
     }
 
     /** {@link net.minecraft.server.level.ServerLevel} */
-    Object getWorldServer(World ThisWorld) {
+    Object getWorldServer(final World world) {
         try {
-            Object castClass = this.getCraftWorld(ThisWorld);
-            return CraftWorldClass.getDeclaredMethod("getHandle").invoke(castClass);
+            final Object castClass = this.getCraftWorld(world);
+            return DragonSlayer.CraftWorldClass.getDeclaredMethod("getHandle").invoke(castClass);
         } catch (NullPointerException | IllegalArgumentException | IllegalAccessException | InvocationTargetException
                 | NoSuchMethodException | SecurityException var3) {
             if (this.configManager.debugOn()) {
@@ -2768,8 +2770,8 @@ public class DragonSlayer extends JavaPlugin {
     }
 
     /** {@link net.minecraft.server.MinecraftServer} */
-    Object getMinecraftServer(World world) {
-        Object worldServer = this.getWorldServer(world);
+    Object getMinecraftServer(final World world) {
+        final Object worldServer = this.getWorldServer(world);
 
         try {
             return this.getMethodByReturntype(worldServer.getClass(), "MinecraftServer", (Class<?>[]) null).invoke(worldServer);
@@ -2778,19 +2780,19 @@ public class DragonSlayer extends JavaPlugin {
         }
     }
 
-    void setDragonPosMeta(Entity dragon, Location location) {
-        MetadataValue MdV_DragonLocation = new FixedMetadataValue(this, location);
+    void setDragonPosMeta(final Entity dragon, final Location location) {
+        final MetadataValue MdV_DragonLocation = new FixedMetadataValue(this, location);
         dragon.setMetadata("DSL-Location", MdV_DragonLocation);
     }
 
-    static Location getDragonPosMeta(Entity dragon) {
+    static Location getDragonPosMeta(final Entity dragon) {
         Location location = null;
         if (dragon.hasMetadata("DSL-Location")) {
-            List<MetadataValue> list = dragon.getMetadata("DSL-Location");
+            final List<MetadataValue> list = dragon.getMetadata("DSL-Location");
             if (list != null && list.size() != 0) {
                 try {
                     location = (Location) ((MetadataValue) list.get(0)).value();
-                } catch (Exception var4) {
+                } catch (final Exception var4) {
                     if (DragonSlayer.debugOn) {
                         Bukkit.getLogger().warning("'DSL-Location' not found in Dragon's Metadata");
                     }
@@ -2801,21 +2803,23 @@ public class DragonSlayer extends JavaPlugin {
         return location;
     }
 
-    public static DragonSlayer getInstance() { return instance; }
+    public static DragonSlayer getInstance() { return DragonSlayer.instance; }
 
-    void setDragonIDMeta(EnderDragon dragon, int dragonId) {
-        MetadataValue MdV_DragonID = new FixedMetadataValue(this, dragonId);
+    void setDragonIDMeta(final EnderDragon dragon, final int dragonId) {
+        final MetadataValue MdV_DragonID = new FixedMetadataValue(this, dragonId);
         dragon.setMetadata("DSL-dragID", MdV_DragonID);
-        if (dId != null && dragonId >= 0 && !dragon.getPersistentDataContainer().has((NamespacedKey) dId, PersistentDataType.INTEGER)) {
-            dragon.getPersistentDataContainer().set((NamespacedKey) dId, PersistentDataType.INTEGER, dragonId);
+        if (DragonSlayer.dragonId != null && dragonId >= 0
+                && !dragon.getPersistentDataContainer().has((NamespacedKey) DragonSlayer.dragonId, PersistentDataType.INTEGER)) {
+            dragon.getPersistentDataContainer().set((NamespacedKey) DragonSlayer.dragonId, PersistentDataType.INTEGER, dragonId);
         }
 
     }
 
-    int getDragonIDMeta(EnderDragon dragon) {
+    int getDragonIDMeta(final EnderDragon dragon) {
         int dragonId = -1;
-        if (dId != null && dragon.getPersistentDataContainer().has((NamespacedKey) dId, PersistentDataType.INTEGER)) {
-            dragonId = dragon.getPersistentDataContainer().get((NamespacedKey) dId, PersistentDataType.INTEGER);
+        if (DragonSlayer.dragonId != null
+                && dragon.getPersistentDataContainer().has((NamespacedKey) DragonSlayer.dragonId, PersistentDataType.INTEGER)) {
+            dragonId = dragon.getPersistentDataContainer().get((NamespacedKey) DragonSlayer.dragonId, PersistentDataType.INTEGER);
             if (!dragon.hasMetadata("DSL-Location") && dragonId >= 0) {
                 this.setDragonPosMeta(dragon, dragon.getEyeLocation());
             }
@@ -2823,15 +2827,15 @@ public class DragonSlayer extends JavaPlugin {
             return dragonId;
         } else {
             if (dragon.hasMetadata("DSL-dragID")) {
-                List<MetadataValue> list = dragon.getMetadata("DSL-dragID");
+                final List<MetadataValue> list = dragon.getMetadata("DSL-dragID");
                 if (list != null && list.size() != 0) {
                     try {
                         dragonId = (int) ((MetadataValue) list.get(0)).value();
-                    } catch (Exception var5) {
+                    } catch (final Exception var5) {
                     }
                 }
             } else if (dragon.isCustomNameVisible()) {
-                String world = dragon.getWorld().getName().toLowerCase();
+                final String world = dragon.getWorld().getName().toLowerCase();
                 dragonId = this.findDragonID(world, dragon.getCustomName());
                 this.setDragonIDMeta(dragon, dragonId);
                 if (dragonId >= 0) {
@@ -2844,25 +2848,25 @@ public class DragonSlayer extends JavaPlugin {
     }
 
     @SuppressWarnings("unchecked")
-    void setDragonDamageMeta(EnderDragon dragon, Player player, double damage) {
-        String w = dragon.getWorld().getName().toLowerCase();
+    void setDragonDamageMeta(final EnderDragon dragon, final Player player, double damage) {
+        final String w = dragon.getWorld().getName().toLowerCase();
         if (this.checkWorld(w)) {
             HashMap<Player, Double> DragonMeta = new HashMap<Player, Double>();
             DragonMeta.put(player, damage);
             if (dragon.hasMetadata("DSL-Damage")) {
-                List<MetadataValue> list = dragon.getMetadata("DSL-Damage");
+                final List<MetadataValue> list = dragon.getMetadata("DSL-Damage");
                 if (list != null && list.size() != 0) {
                     try {
                         DragonMeta = (HashMap<Player, Double>) ((MetadataValue) list.get(0)).value();
-                        double oldDamage = DragonMeta.get(player) != null ? DragonMeta.get(player) : 0.0D;
+                        final double oldDamage = DragonMeta.get(player) != null ? DragonMeta.get(player) : 0.0D;
                         damage += oldDamage;
                         DragonMeta.put(player, damage);
-                    } catch (Exception var10) {
+                    } catch (final Exception var10) {
                     }
                 }
             }
 
-            MetadataValue MdV_DragonDamage = new FixedMetadataValue(this, DragonMeta);
+            final MetadataValue MdV_DragonDamage = new FixedMetadataValue(this, DragonMeta);
             dragon.setMetadata("DSL-Damage", MdV_DragonDamage);
         }
 
@@ -2870,31 +2874,31 @@ public class DragonSlayer extends JavaPlugin {
 
     private void StartSecondRepeatingTimer() {
         this.getServer().getScheduler().scheduleSyncRepeatingTask(this, () -> {
-            for (String mapname : this.configManager.getMaplist()) {
+            for (final String mapname : this.configManager.getMaplist()) {
                 this.addTimerDisplay(mapname);
                 this.updateTimerDisplay(mapname);
                 if (!this.healTickCounterList.containsKey(mapname)) {
                     this.healTickCounterList.put(mapname, 0);
                 }
 
-                int secs = this.configManager.getRegenSecs(mapname);
-                int healAmount = this.configManager.getRegenAmount(mapname);
-                int mapCounter = this.healTickCounterList.get(mapname);
-                boolean startHeal = secs > 0 ? mapCounter >= secs : false;
+                final int secs = this.configManager.getRegenSecs(mapname);
+                final int healAmount = this.configManager.getRegenAmount(mapname);
+                final int mapCounter = this.healTickCounterList.get(mapname);
+                final boolean startHeal = secs > 0 ? mapCounter >= secs : false;
                 if (startHeal) {
-                    World thisWorld = this.getDragonWorldFromString(mapname);
+                    final World thisWorld = this.getDragonWorldFromString(mapname);
                     if (thisWorld != null) {
-                        Collection<EnderDragon> dragons = thisWorld.getEntitiesByClass(EnderDragon.class);
+                        final Collection<EnderDragon> dragons = thisWorld.getEntitiesByClass(EnderDragon.class);
                         if (dragons != null) {
-                            for (EnderDragon dragon : dragons) {
+                            for (final EnderDragon dragon : dragons) {
                                 if (dragon.isValid() && this.checkDSLDragon(dragon)) {
                                     double maxHealth;
 
                                     maxHealth = dragon.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
 
-                                    double health = dragon.getHealth();
+                                    final double health = dragon.getHealth();
                                     if (health < maxHealth) {
-                                        double newHealth = health + (double) healAmount;
+                                        final double newHealth = health + (double) healAmount;
                                         dragon.setHealth(newHealth > maxHealth ? maxHealth : newHealth);
                                         this.setBossBarAmount(dragon);
                                     }
@@ -2907,12 +2911,12 @@ public class DragonSlayer extends JavaPlugin {
                 this.healTickCounterList.put(mapname, startHeal ? 0 : mapCounter + 1);
             }
 
-            switch (RunCounter) {
+            switch (DragonSlayer.repeatingCounter) {
             case 2:
-                cleanupDragons();
+                DragonSlayer.cleanupDragons();
 
-                for (String Mapname : this.configManager.getMaplist()) {
-                    World world = this.getServer().getWorld(Mapname);
+                for (final String Mapname : this.configManager.getMaplist()) {
+                    final World world = this.getServer().getWorld(Mapname);
                     if (world != null) {
                         this.handleBossbar(world);
                     }
@@ -2925,14 +2929,14 @@ public class DragonSlayer extends JavaPlugin {
                 break;
             case 15:
                 this.checkForSleepingDragons();
-                RunCounter = 0;
+                DragonSlayer.repeatingCounter = 0;
             }
 
-            ++RunCounter;
-            if (++RunCounter2 > this.configManager.getTabListTime()) {
-                RunCounter2 = 1;
+            ++DragonSlayer.repeatingCounter;
+            if (++DragonSlayer.tabListTime > this.configManager.getTabListTime()) {
+                DragonSlayer.tabListTime = 1;
 
-                for (Player p : this.getServer().getOnlinePlayers()) {
+                for (final Player p : this.getServer().getOnlinePlayers()) {
                     this.setTabListName(p);
                 }
             }
@@ -2940,48 +2944,48 @@ public class DragonSlayer extends JavaPlugin {
         }, 600L, 20L);
     }
 
-    String[] getWorldsNextSpawnsOrReset(String Mapname, boolean spawn, boolean reset) {
+    String[] getWorldsNextSpawnsOrReset(final String worldName, final boolean spawn, final boolean reset) {
         long checkTimer = -1L;
         if (spawn) {
-            checkTimer = this.getNextRespawn(Mapname);
+            checkTimer = this.getNextRespawn(worldName);
         }
 
         if (reset) {
-            checkTimer = this.getResetTime(Mapname);
+            checkTimer = this.getResetTime(worldName);
         }
 
         if (checkTimer >= 0L) {
             checkTimer /= 20L;
-            int rest = (int) checkTimer % 86400;
-            int days = (int) checkTimer / 86400;
-            int hours = rest / 3600;
-            int minutes = rest / 60 - hours * 60;
-            int seconds = rest % 60;
+            final int rest = (int) checkTimer % 86400;
+            final int days = (int) checkTimer / 86400;
+            final int hours = rest / 3600;
+            final int minutes = rest / 60 - hours * 60;
+            final int seconds = rest % 60;
             return String.format("%d,%02d,%02d,%02d", days, hours, minutes, seconds).split(",");
         } else {
             return null;
         }
     }
 
-    private void addTimerDisplay(String ThisWorld) {
-        if (!timerDisplays.containsKey(ThisWorld)) {
-            Scoreboard timerDisplay = this.getServer().getScoreboardManager().getNewScoreboard();
+    private void addTimerDisplay(final String worldName) {
+        if (!DragonSlayer.timerDisplays.containsKey(worldName)) {
+            final Scoreboard timerDisplay = this.getServer().getScoreboardManager().getNewScoreboard();
             this.setDisplayBasics(timerDisplay);
-            timerDisplays.put(ThisWorld, timerDisplay);
-            this.setTimerdisplayForWorld(ThisWorld, timerDisplay);
+            DragonSlayer.timerDisplays.put(worldName, timerDisplay);
+            this.setTimerdisplayForWorld(worldName, timerDisplay);
         }
     }
 
-    void setDisplayBasics(Scoreboard timerDisplay) {
+    void setDisplayBasics(final Scoreboard timerDisplay) {
         Objective ScoreObj = timerDisplay.getObjective("DSL");
         if (ScoreObj == null) {
             try {
-                Criteria dslTimer = Criteria.create("DSLTimer");
+                final Criteria dslTimer = Criteria.create("DSLTimer");
                 ScoreObj = timerDisplay.registerNewObjective("DSL", dslTimer, ChatColor.GREEN + "Next Spawn Time");
             } catch (NoSuchMethodError | NoClassDefFoundError var6) {
                 try {
                     ScoreObj = timerDisplay.registerNewObjective("DSL", "DSLTimer", ChatColor.GREEN + "Next Spawn Time");
-                } catch (NoSuchMethodError var5) {
+                } catch (final NoSuchMethodError var5) {
                     ScoreObj = timerDisplay.registerNewObjective("DSL", "DSLTimer");
                     ScoreObj.setDisplayName(ChatColor.GREEN + "Next Spawn Time");
                 }
@@ -2999,48 +3003,48 @@ public class DragonSlayer extends JavaPlugin {
             team_reset = timerDisplay.registerNewTeam("T-Reset");
         }
 
-        if (!team_spawn.hasEntry(ScoreBoardName_1)) {
-            team_spawn.addEntry(ScoreBoardName_1);
+        if (!team_spawn.hasEntry(DragonSlayer.ScoreBoardName_TimerDisplay)) {
+            team_spawn.addEntry(DragonSlayer.ScoreBoardName_TimerDisplay);
         }
 
-        if (!team_reset.hasEntry(ScoreBoardName_2)) {
-            team_reset.addEntry(ScoreBoardName_2);
+        if (!team_reset.hasEntry(DragonSlayer.ScoreBoardName_ResetTimer)) {
+            team_reset.addEntry(DragonSlayer.ScoreBoardName_ResetTimer);
         }
 
     }
 
-    private void updateTimerDisplay(String ThisWorld) {
-        World thisWorld_ = this.getDragonWorldFromString(ThisWorld);
+    private void updateTimerDisplay(final String worldName) {
+        final World thisWorld_ = this.getDragonWorldFromString(worldName);
         if (thisWorld_ != null) {
-            if (timerDisplays.containsKey(ThisWorld)) {
-                Scoreboard sb = (Scoreboard) timerDisplays.get(ThisWorld);
+            if (DragonSlayer.timerDisplays.containsKey(worldName)) {
+                final Scoreboard sb = (Scoreboard) DragonSlayer.timerDisplays.get(worldName);
                 Objective ScoreObj = sb.getObjective("DSL");
-                int timerFunc = this.configManager.getTimerfunc(ThisWorld);
-                String[] times = this.getWorldsNextSpawnsOrReset(ThisWorld, true, false);
-                String[] resTimes = this.getWorldsNextSpawnsOrReset(ThisWorld, false, true);
+                final int timerFunc = this.configManager.getTimerfunc(worldName);
+                final String[] times = this.getWorldsNextSpawnsOrReset(worldName, true, false);
+                final String[] resTimes = this.getWorldsNextSpawnsOrReset(worldName, false, true);
                 if ((times != null || resTimes != null) && timerFunc > 0) {
                     if (ScoreObj == null) {
                         this.setDisplayBasics(sb);
                         ScoreObj = sb.getObjective("DSL");
-                        this.setTimerdisplayForWorld(ThisWorld, sb);
+                        this.setTimerdisplayForWorld(worldName, sb);
                     }
 
-                    Team team_spawn = sb.getTeam("T-Spawn");
-                    Team team_reset = sb.getTeam("T-Reset");
+                    final Team team_spawn = sb.getTeam("T-Spawn");
+                    final Team team_reset = sb.getTeam("T-Reset");
                     Score fakePlayScore1 = null;
                     Score fakePlayScore2 = null;
                     String seconds1 = "";
                     String seconds2 = "";
                     String spawnsuffix = "";
                     String resetsuffix = "";
-                    int blahfixlength = 64;
+                    final int blahfixlength = 64;
                     boolean titleset = false;
-                    boolean showCount = timerFunc == 2;
+                    final boolean showCount = timerFunc == 2;
                     if (times != null) {
-                        fakePlayScore1 = ScoreObj.getScore(ScoreBoardName_1);
-                        String days = times[0];
-                        String hours = times[1];
-                        String minutes = times[2];
+                        fakePlayScore1 = ScoreObj.getScore(DragonSlayer.ScoreBoardName_TimerDisplay);
+                        final String days = times[0];
+                        final String hours = times[1];
+                        final String minutes = times[2];
                         seconds1 = times[3];
                         String timerline = this.configManager.getTimerline().replace('&', '§');
                         if (!timerline.trim().isEmpty()) {
@@ -3063,12 +3067,12 @@ public class DragonSlayer extends JavaPlugin {
                             timerline = timerline.substring(0, blahfixlength);
                         }
 
-                        if (!TabListPlugin) {
+                        if (!DragonSlayer.TabListPlugin) {
                             team_spawn.setPrefix(timerline);
                             team_spawn.setSuffix(spawnsuffix);
                         } else {
-                            sb.getEntries().stream().forEach((str) -> sb.resetScores(str));
-                            fakePlayScore1 = ScoreObj.getScore(ScoreBoardName_1 + timerline + spawnsuffix);
+                            sb.getEntries().stream().forEach(str -> sb.resetScores(str));
+                            fakePlayScore1 = ScoreObj.getScore(DragonSlayer.ScoreBoardName_TimerDisplay + timerline + spawnsuffix);
                         }
 
                         ScoreObj.setDisplayName(ChatColor.GREEN + this.configManager.getTimertext().replace("$days", String.valueOf(days))
@@ -3078,10 +3082,10 @@ public class DragonSlayer extends JavaPlugin {
                     }
 
                     if (resTimes != null) {
-                        fakePlayScore2 = ScoreObj.getScore(ScoreBoardName_2);
-                        String days = resTimes[0];
-                        String hours = resTimes[1];
-                        String minutes = resTimes[2];
+                        fakePlayScore2 = ScoreObj.getScore(DragonSlayer.ScoreBoardName_ResetTimer);
+                        final String days = resTimes[0];
+                        final String hours = resTimes[1];
+                        final String minutes = resTimes[2];
                         seconds2 = resTimes[3];
                         String resetline = this.configManager.getResetline().replace('&', '§');
                         if (!resetline.trim().isEmpty()) {
@@ -3104,11 +3108,11 @@ public class DragonSlayer extends JavaPlugin {
                             resetline = resetline.substring(0, blahfixlength);
                         }
 
-                        if (!TabListPlugin) {
+                        if (!DragonSlayer.TabListPlugin) {
                             team_reset.setPrefix(resetline);
                             team_reset.setSuffix(resetsuffix);
                         } else {
-                            fakePlayScore2 = ScoreObj.getScore(ScoreBoardName_1 + resetline + resetsuffix);
+                            fakePlayScore2 = ScoreObj.getScore(DragonSlayer.ScoreBoardName_TimerDisplay + resetline + resetsuffix);
                         }
 
                         if (!titleset) {
@@ -3120,24 +3124,24 @@ public class DragonSlayer extends JavaPlugin {
                     }
 
                     if (fakePlayScore1 != null) {
-                        fakePlayScore1.setScore(showCount ? this.countRespawnTimers(ThisWorld) : Integer.valueOf(seconds1));
+                        fakePlayScore1.setScore(showCount ? this.countRespawnTimers(worldName) : Integer.valueOf(seconds1));
                     }
 
                     if (fakePlayScore2 != null) {
                         fakePlayScore2.setScore(showCount ? 0 : Integer.valueOf(seconds2));
                     } else {
-                        sb.resetScores(ScoreBoardName_2);
+                        sb.resetScores(DragonSlayer.ScoreBoardName_ResetTimer);
                     }
                 } else if (ScoreObj != null) {
                     ScoreObj.setDisplayName(ChatColor.GREEN + "No Spawntimer");
-                    sb.getEntries().stream().forEach((str) -> sb.resetScores(str));
+                    sb.getEntries().stream().forEach(str -> sb.resetScores(str));
 
                     ScoreObj.unregister();
 
                 }
 
-                if (this.getStatueVersion() >= 2 && ProtocolLibEnabled) {
-                    World NPCStatue_World = this.getArmorstandWorld();
+                if (this.getStatueVersion() >= 2 && DragonSlayer.ProtocolLibEnabled) {
+                    final World NPCStatue_World = this.getArmorstandWorld();
                     if (NPCStatue_World != null && thisWorld_ != null && thisWorld_.equals(NPCStatue_World)) {
                         Team team2_NPC = sb.getTeam("DSL-NPCs");
                         if (team2_NPC == null) {
@@ -3147,7 +3151,12 @@ public class DragonSlayer extends JavaPlugin {
                         if (team2_NPC.getEntries().isEmpty()) {
                             team2_NPC.setOption(Option.NAME_TAG_VISIBILITY, OptionStatus.NEVER);
 
-                            for (String ent : protLibHandler.team_NPC.getEntries()) {
+                            if (DragonSlayer.protLibHandler.team_NPC == null) {
+                                DragonSlayer.protLibHandler.team_NPC = this.getServer().getScoreboardManager().getMainScoreboard()
+                                        .getTeam("DSL-NPCs");
+                            }
+
+                            for (final String ent : DragonSlayer.protLibHandler.team_NPC.getEntries()) {
                                 if (!team2_NPC.hasEntry(ent)) {
                                     team2_NPC.addEntry(ent);
                                 }
@@ -3160,11 +3169,11 @@ public class DragonSlayer extends JavaPlugin {
         }
     }
 
-    void setTimerdisplayToPlayer(Player player) {
-        String thisWorld = player.getWorld().getName().toLowerCase();
+    void setTimerdisplayToPlayer(final Player player) {
+        final String thisWorld = player.getWorld().getName().toLowerCase();
         if (this.checkWorld(thisWorld)) {
             if (this.configManager.getTimerfunc(thisWorld) != 0) {
-                Scoreboard timerSB = (Scoreboard) timerDisplays.get(thisWorld);
+                final Scoreboard timerSB = (Scoreboard) DragonSlayer.timerDisplays.get(thisWorld);
                 if (timerSB != null && timerSB.getObjective("DSL") != null) {
                     player.setScoreboard(timerSB);
                 }
@@ -3173,19 +3182,19 @@ public class DragonSlayer extends JavaPlugin {
         }
     }
 
-    void delTimerdisplayFromPlayer(Player player) {
-        Scoreboard timerSB = player.getScoreboard();
+    void delTimerdisplayFromPlayer(final Player player) {
+        final Scoreboard timerSB = player.getScoreboard();
         if (timerSB != null && timerSB.getObjective("DSL") != null) {
             player.setScoreboard(this.getServer().getScoreboardManager().getMainScoreboard());
         }
 
     }
 
-    void setTimerdisplayForWorld(String thisWorld, Scoreboard timerDisplay) {
-        if (this.configManager.getTimerfunc(thisWorld) != 0) {
-            World world = Bukkit.getWorld(thisWorld);
+    void setTimerdisplayForWorld(final String worldName, final Scoreboard timerDisplay) {
+        if (this.configManager.getTimerfunc(worldName) != 0) {
+            final World world = Bukkit.getWorld(worldName);
             if (world != null) {
-                for (Player player : world.getPlayers()) {
+                for (final Player player : world.getPlayers()) {
                     player.setScoreboard(timerDisplay);
                 }
             }
@@ -3193,9 +3202,9 @@ public class DragonSlayer extends JavaPlugin {
         }
     }
 
-    private Team addTeamToPlayersScoreBoard(Player p, String teamName, ChatColor color) {
+    private Team addTeamToPlayersScoreBoard(final Player p, final String teamName, final ChatColor color) {
         this.cleanupGlowTeamList();
-        Scoreboard board = p.getScoreboard();
+        final Scoreboard board = p.getScoreboard();
         Team t = board.getTeam(teamName);
         if (t == null) {
             t = board.registerNewTeam(teamName);
@@ -3204,20 +3213,20 @@ public class DragonSlayer extends JavaPlugin {
 
         }
 
-        if (!TeamList.contains(t)) {
-            TeamList.add(t);
+        if (!DragonSlayer.TeamList.contains(t)) {
+            DragonSlayer.TeamList.add(t);
         }
 
         return t;
     }
 
-    void handleGlowTeams(World w, int dragonId, String uuid) {
-        String DragonColor = this.configManager.getGlowColor(w.getName().toLowerCase(), dragonId);
-        ChatColor color = ChatColor.valueOf(DragonColor) != null ? ChatColor.valueOf(DragonColor) : ChatColor.DARK_AQUA;
-        String teamName = "DSL_" + color.name();
+    void handleGlowTeams(final World world, final int dragonId, final String uuid) {
+        final String DragonColor = this.configManager.getGlowColor(world.getName().toLowerCase(), dragonId);
+        final ChatColor color = ChatColor.valueOf(DragonColor) != null ? ChatColor.valueOf(DragonColor) : ChatColor.DARK_AQUA;
+        final String teamName = "DSL_" + color.name();
 
-        for (Player p : w.getPlayers()) {
-            Team t = this.addTeamToPlayersScoreBoard(p, teamName, color);
+        for (final Player p : world.getPlayers()) {
+            final Team t = this.addTeamToPlayersScoreBoard(p, teamName, color);
             if (!t.hasEntry(uuid)) {
                 t.addEntry(uuid);
             }
@@ -3228,27 +3237,27 @@ public class DragonSlayer extends JavaPlugin {
     void cleanupGlowTeamList() {
 
         try {
-            ArrayList<String> tempList = new ArrayList<String>();
+            final ArrayList<String> tempList = new ArrayList<String>();
 
-            for (Team t : TeamList) {
-                for (String uuid : t.getEntries()) {
-                    Entity dragEnt_ = this.getServer().getEntity(UUID.fromString(uuid));
+            for (final Team t : DragonSlayer.TeamList) {
+                for (final String uuid : t.getEntries()) {
+                    final Entity dragEnt_ = this.getServer().getEntity(UUID.fromString(uuid));
                     if (dragEnt_ == null || !dragEnt_.isValid()) {
                         tempList.add(uuid);
                     }
                 }
 
                 if (!tempList.isEmpty()) {
-                    tempList.stream().forEach((uid) -> t.removeEntry(uid));
+                    tempList.stream().forEach(uid -> t.removeEntry(uid));
                     tempList.clear();
                 }
 
                 if (t.getSize() == 0) {
-                    TeamList.remove(t);
+                    DragonSlayer.TeamList.remove(t);
                     t.unregister();
                 }
             }
-        } catch (ConcurrentModificationException var7) {
+        } catch (final ConcurrentModificationException var7) {
         }
 
     }

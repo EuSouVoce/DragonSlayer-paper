@@ -47,6 +47,7 @@ import com.google.gson.JsonParser;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 
+import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 
 public class ProtLibHandler {
@@ -54,7 +55,7 @@ public class ProtLibHandler {
     @SuppressWarnings("unused")
     private Constructor<?> pim_const = null;
     private Constructor<?> entp_const = null;
-    private Object ci = null;
+
     private Class<?> ENT_Class = null;
     Object NPCStatue = null;
     Team team_NPC = null;
@@ -109,38 +110,20 @@ public class ProtLibHandler {
             if (pim != null) {
 
                 try {
+                    Class<?> clientInfo = Class.forName("net.minecraft.server.level.ClientInformation");
                     if (this.entp_const == null) {
                         this.entp_const = Class.forName("net.minecraft.server.level.ServerPlayer").getConstructor(
                                 Class.forName("net.minecraft.server.MinecraftServer"), nmsWorld.getClass(), gameProfile.getClass(),
-                                Class.forName("net.minecraft.world.entity.player.ProfilePublicKey"));
+                                clientInfo);
                     }
 
-                    this.NPCStatue = this.entp_const.newInstance(nmsServer, nmsWorld, gameProfile, null);
+                    Method createDefault = this.plugin.getMethodByName(clientInfo, "createDefault");
+
+                    this.NPCStatue = this.entp_const.newInstance(nmsServer, nmsWorld, gameProfile, createDefault.invoke(clientInfo));
                 } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException
-                        | InvocationTargetException | NoSuchMethodException var19) {
-                    try {
-                        if (this.entp_const == null) {
-                            this.entp_const = Class.forName("net.minecraft.server.level.EntityPlayer").getConstructor(
-                                    Class.forName("net.minecraft.server.MinecraftServer"), nmsWorld.getClass(), gameProfile.getClass());
-                        }
-
-                        this.NPCStatue = this.entp_const.newInstance(nmsServer, nmsWorld, gameProfile);
-                    } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException
-                            | InvocationTargetException | NoSuchMethodException var18) {
-                        if (this.entp_const == null) {
-                            if (this.ci == null) {
-                                Method clientInfo = this.plugin.getMethodByReturntype(
-                                        Class.forName("net.minecraft.server.level.ClientInformation"), "ClientInformation", new Class[0]);
-                                this.ci = clientInfo.invoke(clientInfo.getClass());
-                            }
-
-                            this.entp_const = Class.forName("net.minecraft.server.level.EntityPlayer").getConstructor(
-                                    Class.forName("net.minecraft.server.MinecraftServer"), nmsWorld.getClass(), gameProfile.getClass(),
-                                    this.ci.getClass());
-                        }
-
-                        this.NPCStatue = this.entp_const.newInstance(nmsServer, nmsWorld, gameProfile, this.ci);
-                    }
+                        | InvocationTargetException | NoSuchMethodException ignored) {
+                    if (DragonSlayer.debugOn)
+                        ignored.printStackTrace();
                 }
 
                 if (this.NPCStatue != null) {
@@ -159,8 +142,7 @@ public class ProtLibHandler {
                     this.plugin.setNPCStatueMeta(ent_, String.valueOf(yaw), "_yaw");
                 }
             }
-        } catch (IllegalArgumentException | IllegalAccessException | SecurityException | InstantiationException | InvocationTargetException
-                | NoSuchMethodException | ClassNotFoundException var20) {
+        } catch (IllegalArgumentException | SecurityException | ClassNotFoundException var20) {
             if (this.plugin.configManager.debugOn()) {
                 var20.printStackTrace();
             }
@@ -461,8 +443,8 @@ public class ProtLibHandler {
 
         try {
             if (this.enth_getProfile == null) {
-                this.enth_getProfile = this.plugin.getMethodByReturntype(Class.forName("net.minecraft.world.entity.player.Player"),
-                        "GameProfile", (Class<?>[]) null);
+                this.enth_getProfile = this.plugin.getMethodByName(Class.forName("net.minecraft.world.entity.player.Player"),
+                        "getGameProfile");
             }
 
             GameProfile profile = (GameProfile) this.enth_getProfile.invoke(entityPlayer);
