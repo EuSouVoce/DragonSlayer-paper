@@ -1025,7 +1025,7 @@ public class DragonSlayer extends JavaPlugin {
             block.getRelative(BlockFace.WEST).setType(Material.BEDROCK);
 
             final Location torchLocation = block.getRelative(0, 1, 0).getLocation();
-            Set<BlockFace> AllowedFaces = Set.of(BlockFace.EAST, BlockFace.WEST, BlockFace.NORTH, BlockFace.SOUTH);
+            final Set<BlockFace> AllowedFaces = Set.of(BlockFace.EAST, BlockFace.WEST, BlockFace.NORTH, BlockFace.SOUTH);
             for (final BlockFace face : AllowedFaces) {
 
                 DragonSlayer.setTorch(torchLocation, face);
@@ -1059,7 +1059,7 @@ public class DragonSlayer extends JavaPlugin {
                 final Block TorchBlock = location.getBlock().getRelative(blockFace);
                 TorchBlock.setType(Material.WALL_TORCH);
 
-                BlockData blockData = TorchBlock.getBlockData();
+                final BlockData blockData = TorchBlock.getBlockData();
                 if (blockData instanceof final Directional torchData) {
                     torchData.setFacing(blockFace.getOppositeFace());
                 }
@@ -2042,17 +2042,19 @@ public class DragonSlayer extends JavaPlugin {
                 DragonSlayer.newPathPoint = pathPoint_cl.getConstructor(Integer.TYPE, Integer.TYPE, Integer.TYPE);
 
                 DragonSlayer.pp_geta_func = this.getMethodByName(pathPoint_cl, "asVec3");
-                Class<?> Vec3_cl = Class.forName("net.minecraft.world.phys.Vec3");
+                final Class<?> Vec3_cl = Class.forName("net.minecraft.world.phys.Vec3");
 
                 DragonSlayer.Vec3_getX = Vec3_cl.getDeclaredMethod("x");
                 DragonSlayer.Vec3_getY = Vec3_cl.getDeclaredMethod("y");
                 DragonSlayer.Vec3_getZ = Vec3_cl.getDeclaredMethod("z");
 
             }
-
             final Object baselockPos = DragonSlayer.pp_geta_func.invoke(point);
-            return DragonSlayer.newPathPoint.newInstance(((int) DragonSlayer.Vec3_getX.invoke(baselockPos)) + newX,
-                    (int) DragonSlayer.Vec3_getY.invoke(baselockPos) + newY, (int) DragonSlayer.Vec3_getZ.invoke(baselockPos) + newZ);
+            final int x = ((Double) DragonSlayer.Vec3_getX.invoke(baselockPos)).intValue() + newX;
+            final int y = ((Double) DragonSlayer.Vec3_getY.invoke(baselockPos)).intValue() + newY;
+            final int z = ((Double) DragonSlayer.Vec3_getZ.invoke(baselockPos)).intValue() + newZ;
+
+            return DragonSlayer.newPathPoint.newInstance(x, y, z);
         } catch (ClassNotFoundException | IllegalAccessException | IllegalArgumentException | InvocationTargetException
                 | InstantiationException | NoSuchMethodException | SecurityException var7) {
             this.logger.warning("Unknown or unsupported Version :" + DragonSlayer.getVersion() + ", can't handle Pathpoints...(yet?)");
